@@ -232,6 +232,7 @@ impl Receiver {
                 "existing destination mismatch"
             );
             self.store.status(&self.m.id, "complete", None)?;
+            self.cleanup_partial()?;
             return Ok(());
         }
         ensure!(self.reconcile()?.is_empty(), "missing verified chunks");
@@ -244,8 +245,19 @@ impl Receiver {
             .context("atomic no-overwrite publication unavailable")?;
         sync_dir(self.destination.parent().unwrap())?;
         self.store.status(&self.m.id, "complete", None)?;
-        std::fs::remove_file(&self.partial)?;
-        sync_dir(self.destination.parent().unwrap())?;
+        self.cleanup_partial()?;
+        Ok(())
+    }
+    fn cleanup_partial(&self) -> Result<()> {
+        match std::fs::symlink_metadata(&self.partial) {
+            Ok(metadata) => {
+                ensure!(metadata.is_file(), "partial cleanup requires a regular file");
+                std::fs::remove_file(&self.partial)?;
+                sync_dir(self.destination.parent().unwrap())?;
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error.into()),
+        }
         Ok(())
     }
 }
@@ -363,6 +375,42 @@ mod tests {
         assert_eq!(std::fs::metadata(&r.destination).unwrap().len(), 0);
         let m = manifest(&p, uuid::Uuid::new_v4().to_string()).unwrap();
         assert!(Receiver::prepare(&d.path().join("out"), m, s, "peer").is_err());
+    }
+    #[test]
+    fn published_file_recovers_failed_completion_commit_and_cleans_partial() {
+        let d = tempfile::tempdir().unwrap();
+        let src = d.path().join("source.bin");
+        let bytes = b"published durable data";
+        std::fs::write(&src, bytes).unwrap();
+        let m = manifest(&src, uuid::Uuid::new_v4().to_string()).unwrap();
+        let db_path = d.path().join("db");
+        let store = Store::open(&db_path).unwrap();
+        let out = d.path().join("out");
+        let receiver = Receiver::prepare(&out, m.clone(), store.clone(), "peer").unwrap();
+        receiver.accept(0, bytes).unwrap();
+        let db = rusqlite::Connection::open(&store.0).unwrap();
+        db.execute_batch(
+            "CREATE TRIGGER reject_completion BEFORE UPDATE OF status ON transfers
+             WHEN NEW.status='complete'
+             BEGIN SELECT RAISE(ABORT, 'injected completion commit failure'); END;",
+        )
+        .unwrap();
+        assert!(receiver.finish().is_err());
+        assert_eq!(store.transfer_status(&m.id).unwrap(), "finishing");
+        assert_eq!(std::fs::read(&receiver.destination).unwrap(), bytes);
+        assert!(receiver.partial.exists());
+        db.execute_batch("DROP TRIGGER reject_completion;").unwrap();
+        drop(db);
+        drop(receiver);
+        drop(store);
+        let store = Store::open(&db_path).unwrap();
+        let recovered = Receiver::prepare(&out, m.clone(), store.clone(), "peer").unwrap();
+        assert!(recovered.reconcile().unwrap().is_empty());
+        recovered.finish().unwrap();
+        assert_eq!(store.transfer_status(&m.id).unwrap(), "complete");
+        assert!(!recovered.partial.exists());
+        assert_eq!(std::fs::read(&recovered.destination).unwrap(), bytes);
+        recovered.finish().unwrap();
     }
     #[test]
     fn source_mutation() {
