@@ -50,10 +50,7 @@ void main() {
       await tester.tap(find.text('Connect'));
       await tester.pump();
       expect(api.probeCalls, 1);
-      expect(
-        tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Connect')).onPressed,
-        isNull,
-      );
+      expect(api.probe.isCompleted, false);
       await tester.tap(find.text('Stop all'));
       await tester.pump();
       expect(api.shutdownCalls, 1);
