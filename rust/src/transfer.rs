@@ -521,8 +521,7 @@ mod tests {
         let m = manifest(&source, uuid::Uuid::new_v4().to_string()).unwrap();
         let db = d.path().join("db");
         let store = Store::open(&db).unwrap();
-        let receiver =
-            Receiver::prepare(&d.path().join("out"), m.clone(), store, "peer").unwrap();
+        let receiver = Receiver::prepare(&d.path().join("out"), m.clone(), store, "peer").unwrap();
         receiver.accept(0, bytes).unwrap();
         receiver.finish().unwrap();
         drop(receiver);
