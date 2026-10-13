@@ -22,6 +22,8 @@ rustls = { version = "=0.23.28", default-features = false, features = ["ring", "
 tokio-rustls = { version = "=0.26.2", default-features = false, features = ["ring", "tls12"] }
 rcgen = "=0.13.2"
 sha2 = "=0.10.9"
+hmac = "=0.12.1"
+spake2 = { version = "=0.4.0", features = ["getrandom"] }
 hex = "=0.4.3"
 serde = { version = "=1.0.219", features = ["derive"] }
 serde_json = "=1.0.140"

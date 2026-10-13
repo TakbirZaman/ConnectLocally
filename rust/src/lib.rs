@@ -13,6 +13,7 @@ mod frb_generated;
 pub mod identity;
 #[cfg(feature = "bridge")]
 mod lifecycle;
+pub mod pairing;
 pub mod protocol;
 pub mod remote;
 pub mod remote_engine;

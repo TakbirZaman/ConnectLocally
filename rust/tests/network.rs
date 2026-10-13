@@ -352,3 +352,128 @@ async fn transfer_policy_survives_restart() {
         (2, 123, 456)
     );
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn code_pairing_transfers_with_session_trust_and_cannot_reuse_code() {
+    let a = tempfile::tempdir().unwrap();
+    let b = tempfile::tempdir().unwrap();
+    let aa = Engine::start(cfg(a.path(), "Phone")).await.unwrap();
+    let bb = Engine::start(cfg(b.path(), "PC")).await.unwrap();
+    let display: serde_json::Value =
+        serde_json::from_str(&bb.begin_pairing_code(false).await.unwrap()).unwrap();
+    let code = display["code"].as_str().unwrap().to_owned();
+    let address = format!("127.0.0.1:{}", bb.port);
+    let peer = aa
+        .pair_with_code(address.clone(), code.clone(), false)
+        .await
+        .unwrap();
+    assert!(!aa.store.trusted(&bb.identity.fingerprint).unwrap());
+    assert!(!bb.store.trusted(&aa.identity.fingerprint).unwrap());
+    let source = a.path().join("code-paired.bin");
+    let bytes = vec![19u8; 128 * 1024];
+    std::fs::write(&source, &bytes).unwrap();
+    let id = aa
+        .send(source.to_str().unwrap().into(), peer.clone())
+        .await
+        .unwrap();
+    tokio::time::timeout(Duration::from_secs(30), async {
+        loop {
+            if bb
+                .store
+                .transfer_status(&id)
+                .is_ok_and(|status| status == "complete")
+            {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .unwrap();
+    assert_eq!(
+        std::fs::read(b.path().join("received/code-paired.bin")).unwrap(),
+        bytes
+    );
+    assert!(aa.pair_with_code(address, code, false).await.is_err());
+    aa.forget(peer.fingerprint.clone()).await.unwrap();
+    assert!(aa.start_control(peer.clone()).await.is_err());
+    aa.shutdown().await;
+    bb.shutdown().await;
+    let aa = Engine::start(cfg(a.path(), "Phone")).await.unwrap();
+    let bb = Engine::start(cfg(b.path(), "PC")).await.unwrap();
+    assert!(aa.start_control(peer).await.is_err());
+    assert!(!bb.store.trusted(&aa.identity.fingerprint).unwrap());
+    aa.shutdown().await;
+    bb.shutdown().await;
+}
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn code_pairing_rejects_wrong_codes_and_exhausted_window_without_trust() {
+    let a = tempfile::tempdir().unwrap();
+    let b = tempfile::tempdir().unwrap();
+    let aa = Engine::start(cfg(a.path(), "Phone")).await.unwrap();
+    let bb = Engine::start(cfg(b.path(), "PC")).await.unwrap();
+    let display: serde_json::Value =
+        serde_json::from_str(&bb.begin_pairing_code(false).await.unwrap()).unwrap();
+    let code = display["code"].as_str().unwrap().to_owned();
+    let wrong = if code == "000000" { "000001" } else { "000000" };
+    let address = format!("127.0.0.1:{}", bb.port);
+    for _ in 0..3 {
+        assert!(aa
+            .pair_with_code(address.clone(), wrong.into(), false)
+            .await
+            .is_err());
+    }
+    assert!(aa
+        .pair_with_code(address.clone(), code, false)
+        .await
+        .is_err());
+    assert!(!aa.store.trusted(&bb.identity.fingerprint).unwrap());
+    assert!(!bb.store.trusted(&aa.identity.fingerprint).unwrap());
+    let peer = aa.probe(address).await.unwrap();
+    assert!(aa.start_control(peer).await.is_err());
+    aa.shutdown().await;
+    bb.shutdown().await;
+}
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn code_pairing_remember_option_survives_restart_and_forget_revokes() {
+    let a = tempfile::tempdir().unwrap();
+    let b = tempfile::tempdir().unwrap();
+    let aa = Engine::start(cfg(a.path(), "Phone")).await.unwrap();
+    let bb = Engine::start(cfg(b.path(), "PC")).await.unwrap();
+    let display: serde_json::Value =
+        serde_json::from_str(&bb.begin_pairing_code(true).await.unwrap()).unwrap();
+    aa.pair_with_code(
+        format!("127.0.0.1:{}", bb.port),
+        display["code"].as_str().unwrap().into(),
+        true,
+    )
+    .await
+    .unwrap();
+    assert!(aa.store.trusted(&bb.identity.fingerprint).unwrap());
+    assert!(bb.store.trusted(&aa.identity.fingerprint).unwrap());
+    aa.shutdown().await;
+    bb.shutdown().await;
+    let aa = Engine::start(cfg(a.path(), "Phone")).await.unwrap();
+    let bb = Engine::start(cfg(b.path(), "PC")).await.unwrap();
+    let peer = aa.probe(format!("127.0.0.1:{}", bb.port)).await.unwrap();
+    let mut events = aa.events.subscribe();
+    aa.start_control(peer.clone()).await.unwrap();
+    tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            let event = events.recv().await.unwrap();
+            if event.kind == "connection" {
+                let payload: serde_json::Value = serde_json::from_str(&event.payload).unwrap();
+                if payload["state"] == "connected" {
+                    break;
+                }
+            }
+        }
+    })
+    .await
+    .unwrap();
+    aa.forget(peer.fingerprint.clone()).await.unwrap();
+    assert!(!aa.store.trusted(&peer.fingerprint).unwrap());
+    assert!(aa.start_control(peer).await.is_err());
+    aa.shutdown().await;
+    bb.shutdown().await;
+}

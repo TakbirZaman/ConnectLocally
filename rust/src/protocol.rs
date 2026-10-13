@@ -92,6 +92,17 @@ pub enum Message {
     Pair {
         name: String,
     },
+    CodePair {
+        name: String,
+        port: u16,
+        exchange: String,
+    },
+    CodeExchange {
+        exchange: String,
+    },
+    CodeProof {
+        proof: String,
+    },
     Approved,
     Denied {
         reason: String,

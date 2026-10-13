@@ -29,6 +29,13 @@ class MainActivity : FlutterActivity() {
     private var exportSource: File? = null
     private var notificationResult: MethodChannel.Result? = null
     private val worker = Executors.newSingleThreadExecutor()
+    private val phoneInputSupported by lazy {
+        try {
+            packageManager.getServiceInfo(
+                android.content.ComponentName(this, RemoteAccessibilityService::class.java), 0
+            ).enabled
+        } catch (_: PackageManager.NameNotFoundException) { false }
+    }
     private var generation=0L
     private var stopResult:MethodChannel.Result?=null
     private var transferResult:MethodChannel.Result?=null
@@ -52,7 +59,7 @@ class MainActivity : FlutterActivity() {
                     "prepareIdentity" -> {IdentityVault.prepare(this);result.success(null)}
                     "sealIdentity" -> {IdentityVault.seal(this);result.success(null)}
                     "displayGeometry" -> result.success(NativeHooks.geometry(this))
-                    "accessibilitySettings" -> {startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));result.success(null)}
+                    "accessibilitySettings" -> {check(phoneInputSupported){"Phone input is unavailable in this View Only build"};startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));result.success(null)}
                     "startProjection" -> {
                         check(projectionResult==null&&ProjectionService.ticket==null){"Stop the previous capture before requesting fresh consent"}
                         requestedProjection=call.arguments as String;projectionResult=result
@@ -62,8 +69,9 @@ class MainActivity : FlutterActivity() {
                     }
                     "cancelStorage" -> {storageEpoch.incrementAndGet();try{activeCopy?.close()}catch(_:Exception){};pending?.success(null);pending=null;exportSource=null;result.success(null)}
                     "stopProjection" -> {requestedProjection=null;projectionResult?.success(mapOf("ok" to false,"error" to "Capture request stopped"));projectionResult=null;stopService(Intent(this,ProjectionService::class.java));RemoteAccessibilityService.authorize(null);result.success(null)}
-                    "authorizeInput" -> {RemoteAccessibilityService.authorize(call.arguments as String?);result.success(null)}
+                    "authorizeInput" -> {check(call.arguments==null||phoneInputSupported){"Phone input is unavailable in this View Only build"};RemoteAccessibilityService.authorize(call.arguments as String?);result.success(null)}
                     "injectInput" -> {
+                        check(phoneInputSupported){"Phone input is unavailable in this View Only build"}
                         val args=call.arguments as Map<*,*>
                         val ok=RemoteAccessibilityService.inject(args["id"] as String,args["event"] as String,args["geometry"] as Map<*,*>)
                         if(ok)result.success(null)else result.error("input_unavailable","Enable LocalConnect Accessibility manually; only taps, short swipes and editable focused text are supported.",null)
@@ -90,7 +98,7 @@ class MainActivity : FlutterActivity() {
                         startActivityForResult(Intent(Intent.ACTION_CREATE_DOCUMENT).apply {type="application/octet-stream"; addCategory(Intent.CATEGORY_OPENABLE); putExtra(Intent.EXTRA_TITLE,f.name)},702)
                     }
                     "batterySettings" -> {OemSettings.open(this);result.success(null)}
-                    "capabilities" -> result.success(mapOf("saf" to true,"screenCaptureSupported" to true,"screenCaptureGranted" to (ProjectionService.ticket!=null),"accessibilityInput" to RemoteAccessibilityService.available(),"sdk" to Build.VERSION.SDK_INT))
+                    "capabilities" -> result.success(mapOf("saf" to true,"screenCaptureSupported" to true,"screenCaptureGranted" to (ProjectionService.ticket!=null),"accessibilitySupported" to phoneInputSupported,"accessibilityInput" to (phoneInputSupported&&RemoteAccessibilityService.available()),"sdk" to Build.VERSION.SDK_INT))
                     else -> result.notImplemented()
                 }
             } catch (e:Exception) {if(pending===result)pending=null;if(projectionResult===result)projectionResult=null;if(notificationResult===result)notificationResult=null;if(stopResult===result)stopResult=null;result.error("platform", e.message, null)}

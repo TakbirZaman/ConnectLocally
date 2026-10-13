@@ -4,4 +4,4 @@ dart_output: lib/src/rust
 rust_features:
   - bridge
 web: false
-no_auto_upgrade_dependency: true
+auto_upgrade_dependency: false
