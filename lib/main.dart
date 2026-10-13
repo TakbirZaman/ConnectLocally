@@ -1225,6 +1225,20 @@ class _HomeState extends ConsumerState<Home> with WidgetsBindingObserver {
         ),
       );
     } else if (page == 0) {
+      content.add(
+        panel(
+          'Connect with a code',
+          'Show a one-time code here, then enter it on the other device.',
+          [
+            FilledButton.icon(
+              onPressed: busy ? null : () => run(displayCode),
+              icon: const Icon(Icons.password),
+              label: const Text('Show pairing code'),
+            ),
+          ],
+          icon: Icons.link,
+        ),
+      );
       if (selected != null) {
         content.add(
           panel(

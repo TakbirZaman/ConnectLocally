@@ -42,13 +42,21 @@ class CodeApi extends Fake implements RustLibApi {
 }
 
 void main() {
+  final api = CodeApi();
+  setUpAll(() => RustLib.initMock(api: api));
+  tearDownAll(RustLib.dispose);
+  setUp(() {
+    api.hostRemember = null;
+    api.clientRemember = null;
+    api.cancelled = 0;
+    api.attempts = 0;
+    api.entered = null;
+  });
   Future<CodeApi> home(WidgetTester tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    final api = CodeApi();
-    RustLib.initMock(api: api);
     final controller = LocalController();
     controller.started('{"fingerprint":"local","port":53317}');
     await tester.pumpWidget(
@@ -58,7 +66,6 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    addTearDown(() => RustLib.dispose());
     return api;
   }
 
