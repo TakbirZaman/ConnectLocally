@@ -1,16 +1,23 @@
 # Release and device acceptance handoff
 
-Automated builds do not establish device behavior. Windows/Linux release builds
-passed in run 38384325209; Android CI must still run the SDK fix in PR #1.
+Automated builds do not establish device behavior. PR #1 is merged. Windows,
+Linux and Android CI passed on merged commit a696e4ac4560c73493dbeec61cc5593bc24ee600:
+https://github.com/TakbirZaman/ConnectLocally/actions/runs/38402175618.
 The previously verified Android package is debug signed. The new release-candidate
 workflow is source preparation only: no signed production candidate has been run.
 
-## Finish CI
+## Retrieve and verify packages
 
-1. In repository Actions, select Validate LocalConnect.
-2. Run on `codex/fix-android-ci-sdk`; wait for all three jobs and inspect artifacts.
-3. Review/merge PR #1 after success. A ready-for-review event is also configured.
+1. Open the successful Validate LocalConnect run for your exact source commit.
+2. Download and extract its platform artifact; retain the package and `.sha256` sidecar.
+3. Verify before installation: `python3 scripts/package_checksum.py /path/to/package --verify`
+   (use `python` on Windows). Do not install after a mismatch.
 4. Keep the whole Windows/Linux bundle; do not distribute just the executable.
+
+Checksums detect corruption; they do not establish publisher identity. Obtain the
+checksum from a trusted build/source channel and verify Android's signer separately.
+Runs before the checksum follow-up contain packages without sidecars. To create
+one for a locally built package, omit `--verify`; existing sidecars are never overwritten.
 
 ## Prepare Android signing privately
 
@@ -31,7 +38,7 @@ Configure these repository Actions secrets through GitHub's settings, never chat
 Use a private local editor to prepare the base64 value; do not commit or share it.
 Run Android release candidate only on reviewed, trusted source. The workflow
 exposes signing secrets only to the build step, writes a mode-0600 temporary
-keystore, removes it afterward and uploads only the APK. It fails with missing
+keystore, removes it afterward and uploads the APK plus its SHA-256 sidecar. It fails with missing
 secret names instead of silently debug-signing. It does not publish a GitHub or
 store release. Save the successful commit SHA, APK SHA-256 and signer fingerprint.
 Do not lose the production key: replacement keys may prevent installed-app updates.

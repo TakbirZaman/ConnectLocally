@@ -28,9 +28,9 @@ runtime correctness.
 - Physical LAN/mDNS/interface changes, Wi-Fi interruption, process force-kill,
   cross-platform memory/throughput measurements and disk-full/power-loss tests.
   An actual >4 GiB loopback transfer and process RSS check have now passed.
-- Pass the latest CI after the X11 harness/reset and duplicate-trigger fixes.
-  Windows/Linux/Android jobs passed on e910bfda in PR run 38398824783. Configure stable development/release signing
-  keys; no private key or public deployment is included.
+- Configure stable production signing keys and run the release-candidate workflow.
+  PR #1 is merged; all Windows/Linux/Android checks passed on merged commit
+  a696e4ac in run 38402175618. No private key or public deployment is included.
 
 ## Explicit product limitations
 
