@@ -698,7 +698,7 @@ class _HomeState extends ConsumerState<Home> with WidgetsBindingObserver {
       '${receiving ? 'Receiving' : 'Sending'} · ${status.replaceAll('_', ' ')}',
       [
         if (total > 0) ...[
-          LinearProgressIndicator(value: (verified / total).clamp(0.0, 1.0)),
+          LinearProgressIndicator(value: (verified / total).clamp(0.0, 1.0).toDouble()),
           const SizedBox(height: 10),
         ],
         Text('${bytes(verified)} verified of ${bytes(total)}'),
