@@ -32,11 +32,17 @@ void main() {
           child: const MaterialApp(home: Home()),
         ),
       );
+      await tester.scrollUntilVisible(
+        find.text('Connect by IP address'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
       await tester.tap(find.text('Connect by IP address'));
       await tester.pumpAndSettle();
       await tester.ensureVisible(find.byType(TextField));
       await tester.enterText(find.byType(TextField), '192.168.1.2:53317');
       await tester.ensureVisible(find.text('Connect'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Connect'));
       await tester.pump();
       expect(find.byType(LinearProgressIndicator), findsOneWidget);

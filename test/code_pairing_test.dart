@@ -90,10 +90,16 @@ void main() {
     'three digits cannot pair; six digits use temporary code authentication',
     (tester) async {
       final api = await home(tester);
+      await tester.scrollUntilVisible(
+        find.text('Connect by IP address'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
       await tester.tap(find.text('Connect by IP address'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), '192.168.1.2:53317');
       await tester.ensureVisible(find.text('Connect'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Connect'));
       await tester.pump(const Duration(milliseconds: 300));
       final field = find.descendant(
