@@ -78,6 +78,7 @@ void main() {
     final progress = tester.widget<LinearProgressIndicator>(
       find.byType(LinearProgressIndicator));
     expect(progress.value, 1);
+    expect(find.text('Integrity passport'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

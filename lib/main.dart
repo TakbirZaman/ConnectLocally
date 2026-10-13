@@ -651,6 +651,71 @@ class _HomeState extends ConsumerState<Home> with WidgetsBindingObserver {
     super.dispose();
   }
 
+  Future<void> showPassport(String id) async {
+    final epoch = operationEpoch;
+    final history = jsonDecode(await core.transferHistory()) as List<dynamic>;
+    final matches = history.where((row) => row['id'] == id).toList();
+    if (matches.isEmpty || matches.first['status'] != 'complete') {
+      throw StateError('A passport is available only for a completed transfer.');
+    }
+    final row = Map<String, dynamic>.from(matches.first as Map);
+    final passport = <String, dynamic>{
+      'format': 'localconnect-transfer-passport',
+      'version': 1,
+      'transferId': id,
+      'fileName': row['fileName'],
+      'fileBytes': row['fileBytes'],
+      'sha256': row['sha256'],
+      'peerFingerprint': row['peer'],
+      'direction': row['direction'],
+      'recordedAtUtc': DateTime.fromMillisecondsSinceEpoch(
+        (row['updatedAt'] as num).toInt() * 1000, isUtc: true).toIso8601String(),
+    };
+    if (!mounted || epoch != operationEpoch) return;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Transfer passport'),
+        content: SingleChildScrollView(child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('${row['fileName']}', style: Theme.of(ctx).textTheme.titleMedium),
+            Text(bytes(row['fileBytes'] as num)),
+            const SizedBox(height: 16),
+            const Text('SHA-256 verified at completion'),
+            const SizedBox(height: 8),
+            SelectableText('${row['sha256']}'),
+            const SizedBox(height: 16),
+            const Text('Peer fingerprint'),
+            const SizedBox(height: 8),
+            SelectableText('${row['peer']}'),
+            const SizedBox(height: 16),
+            const Text('An offline integrity record, not a signed receipt or a recheck of later file edits. Compare the hash with an independently trusted original.'),
+          ],
+        )),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+          FilledButton.icon(
+            onPressed: () async {
+              try {
+                await Clipboard.setData(ClipboardData(
+                  text: const JsonEncoder.withIndent('  ').convert(passport)));
+                if (ctx.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Passport copied. Share only with people you trust.')));
+                }
+              } catch (error) {
+                if (mounted) ref.read(localProvider.notifier).fail(error);
+              }
+            },
+            icon: const Icon(Icons.copy),
+            label: const Text('Copy passport')),
+        ],
+      ),
+    );
+  }
+
   String bytes(num value) {
     const units = ['B', 'KB', 'MB', 'GB', 'TB'];
     var amount = value.toDouble();
@@ -710,6 +775,10 @@ class _HomeState extends ConsumerState<Home> with WidgetsBindingObserver {
         ),
         const SizedBox(height: 8),
         Wrap(spacing: 8, runSpacing: 8, children: [
+          if (status == 'complete') OutlinedButton.icon(
+            onPressed: busy ? null : () => run(() => showPassport(id)),
+            icon: const Icon(Icons.verified_outlined),
+            label: const Text('Integrity passport')),
           if (active) TextButton(
             onPressed: busy ? null : () => run(() => core.cancelTransfer(id: id)),
             child: const Text('Cancel transfer')),

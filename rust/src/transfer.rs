@@ -513,6 +513,32 @@ mod tests {
         assert_eq!(std::fs::read(&recovered.destination).unwrap(), bytes);
     }
     #[test]
+    fn completed_history_retains_integrity_passport_after_restart() {
+        let d = tempfile::tempdir().unwrap();
+        let source = d.path().join("passport.bin");
+        let bytes = b"offline integrity passport";
+        std::fs::write(&source, bytes).unwrap();
+        let m = manifest(&source, uuid::Uuid::new_v4().to_string()).unwrap();
+        let db = d.path().join("db");
+        let store = Store::open(&db).unwrap();
+        let receiver =
+            Receiver::prepare(&d.path().join("out"), m.clone(), store, "peer").unwrap();
+        receiver.accept(0, bytes).unwrap();
+        receiver.finish().unwrap();
+        drop(receiver);
+        let store = Store::open(&db).unwrap();
+        let history: serde_json::Value = serde_json::from_str(&store.history().unwrap()).unwrap();
+        let row = &history[0];
+        assert_eq!(row["id"], m.id);
+        assert_eq!(row["fileName"], m.name);
+        assert_eq!(row["fileBytes"], bytes.len() as u64);
+        assert_eq!(row["sha256"], hash(bytes));
+        assert_eq!(row["peer"], "peer");
+        assert_eq!(row["status"], "complete");
+        assert_eq!(row["manifestVersion"], m.version);
+        assert!(row["updatedAt"].as_i64().unwrap() > 0);
+    }
+    #[test]
     fn source_mutation() {
         let d = tempfile::tempdir().unwrap();
         let p = d.path().join("x");
