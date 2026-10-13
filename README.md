@@ -166,7 +166,7 @@ flutter analyze
 flutter test --dart-define=LOCALCONNECT_NATIVE_LIB=/absolute/project/rust/target/debug/liblocalconnect_core.so
 ```
 
-Windows/Linux repository CI builds and packaging have passed; Android CI needs the SDK setup fix described in VALIDATION.md. See that report for recorded runs and remaining acceptance checks.
+Windows/Linux/Android repository CI builds and packaging passed in PR run 38398824783. A duplicate push run exposed an X11 test-server reset race, which is being fixed before merge. See VALIDATION.md. See that report for recorded runs and remaining acceptance checks.
 
 | Capability | Windows | Linux X11 | Linux Wayland | Android |
 |---|---|---|---|---|

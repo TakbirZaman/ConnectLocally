@@ -179,3 +179,20 @@ The proposed CI fix installs the SDK tools using a pinned setup-android action,
 accepts licenses through that action, installs both plugin/app SDK packages and
 adds APK ABI/ELF/signature/ZIP checks. A new run must pass before marking Android
 CI complete. Historical local Android build evidence remains valid separately.
+
+## Cross-platform CI and merge-blocking harness issue
+
+PR run https://github.com/TakbirZaman/ConnectLocally/actions/runs/38398824783
+passed all Linux/Windows/Android jobs for e910bfda5c7259c445e9582e04a21465d0bbda22.
+Artifacts: windows-x64, linux-x64, android-arm64-debug. Android ABI/ELF/signature/
+ZIP checks passed; APK SHA-256 dccf6880c3efb56d6ddb655d5601df50917238cabd73a377598811debc33efa6.
+The signing preparation fixture checks missing-secret failure and mode 0600;
+actual production signing still requires the owner's key and has not run.
+
+A duplicate push run failed in the X11 test's post-Stop connection with
+UnexpectedEof and prevented merge despite the successful PR run. The harness
+now uses Xvfb -noreset so the server does not reset when all application clients
+close; held-input release is checked against surviving server state. Feature
+branch pushes no longer duplicate PR jobs; push CI remains on main/develop.
+These harness changes require a fresh green run before merge. No protection
+settings were disabled or bypassed.

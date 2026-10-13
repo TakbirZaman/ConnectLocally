@@ -28,8 +28,8 @@ runtime correctness.
 - Physical LAN/mDNS/interface changes, Wi-Fi interruption, process force-kill,
   cross-platform memory/throughput measurements and disk-full/power-loss tests.
   An actual >4 GiB loopback transfer and process RSS check have now passed.
-- Pass Android CI after fixing missing sdkmanager on the runner. Windows/Linux
-  CI builds and packaging passed. Configure stable development/release signing
+- Pass the latest CI after the X11 harness/reset and duplicate-trigger fixes.
+  Windows/Linux/Android jobs passed on e910bfda in PR run 38398824783. Configure stable development/release signing
   keys; no private key or public deployment is included.
 
 ## Explicit product limitations
