@@ -701,7 +701,7 @@ class _HomeState extends ConsumerState<Home> with WidgetsBindingObserver {
               try {
                 await Clipboard.setData(ClipboardData(
                   text: const JsonEncoder.withIndent('  ').convert(passport)));
-                if (ctx.mounted) {
+                if (mounted && ctx.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Passport copied. Share only with people you trust.')));
                 }
