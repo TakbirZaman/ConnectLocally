@@ -1,10 +1,10 @@
 # Validation evidence — 2026-10-13
 
-This report separates executed checks from source implementation. The latest
-source uses Rust 1.88.0, Flutter 3.29.3/Dart 3.7.2, FRB 2.11.1, and committed
+This report separates executed checks from source implementation. The project
+uses Rust 1.88.0, Flutter 3.29.3/Dart 3.7.2, FRB 2.11.1, and committed
 Cargo.lock/pubspec.lock. Tests were executed on Linux x86_64.
 
-## Current revision: checks actually executed
+## Earlier foundation revision: checks actually executed
 
 - Full default-feature `cargo test --locked`: **26 passed**, one live X11 test
   intentionally ignored in the normal suite (17 unit, 8 network, 1 remote security).
@@ -56,6 +56,21 @@ rejection, independent control during stalled bulk, interrupted-transfer recover
 policy persistence, and stale native lifecycle generation rejection.
 Network tests use real rustls, SQLite and temporary files over loopback.
 They do not establish physical WLAN, mDNS multicast or power-loss behavior.
+
+## One-time code pairing evidence
+
+The new real-TLS network tests passed on Linux and Windows in workflow run
+38459959106: temporary trust with verified file transfer and code reuse rejection,
+three wrong attempts without trust, remembered trust after restart and removal.
+Linux strict clippy, receiver failure tests and isolated X11 checks also passed
+in that run. Its Flutter analysis failed on a UI flow-control style finding;
+that finding was corrected in a later revision.
+
+The final PR checks validate the committed generated FRB bindings and resolved
+lockfile directly. Consult PR #7 for the exact final checked commit and CI run.
+New UI tests check six-digit validation, leading zeros, default temporary access
+and cancellation. Physical LAN, phone UI, projection consent and real Windows/
+Wayland desktop behavior require the device checks below.
 
 ## Build environment observations
 

@@ -94,12 +94,22 @@ void main() {
         matching: find.byType(TextField),
       );
       await tester.enterText(field, '234');
-      await tester.tap(find.widgetWithText(FilledButton, 'Connect'));
+      await tester.tap(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.widgetWithText(FilledButton, 'Connect'),
+        ),
+      );
       await tester.pump(const Duration(milliseconds: 100));
       expect(api.attempts, 0);
       expect(find.text('Enter all six digits.'), findsOneWidget);
       await tester.enterText(field, '012345');
-      await tester.tap(find.widgetWithText(FilledButton, 'Connect'));
+      await tester.tap(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.widgetWithText(FilledButton, 'Connect'),
+        ),
+      );
       await tester.pumpAndSettle();
       expect(api.attempts, 1);
       expect(api.entered, '012345');
