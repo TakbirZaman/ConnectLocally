@@ -251,7 +251,10 @@ impl Receiver {
     fn cleanup_partial(&self) -> Result<()> {
         match std::fs::symlink_metadata(&self.partial) {
             Ok(metadata) => {
-                ensure!(metadata.is_file(), "partial cleanup requires a regular file");
+                ensure!(
+                    metadata.is_file(),
+                    "partial cleanup requires a regular file"
+                );
                 std::fs::remove_file(&self.partial)?;
                 sync_dir(self.destination.parent().unwrap())?;
             }
