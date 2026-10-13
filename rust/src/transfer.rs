@@ -415,6 +415,63 @@ mod tests {
         assert_eq!(std::fs::read(&recovered.destination).unwrap(), bytes);
         recovered.finish().unwrap();
     }
+    #[cfg(target_os = "linux")]
+    #[test]
+    #[ignore = "requires isolated size-limited tmpfs; run through Linux CI"]
+    fn disk_full_does_not_verify_chunk_and_recovers() {
+        let volume = std::env::var("LOCALCONNECT_FAILURE_VOLUME").unwrap();
+        let volume = PathBuf::from(volume).canonicalize().unwrap();
+        let marker = volume.join(".localconnect-disposable-volume");
+        assert!(marker.is_file(), "refusing an unmarked volume");
+        let work = tempfile::tempdir_in(&volume).unwrap();
+        let state = tempfile::tempdir().unwrap();
+        let bytes = vec![42u8; CHUNK as usize];
+        let source = state.path().join("source.bin");
+        std::fs::write(&source, &bytes).unwrap();
+        let m = manifest(&source, uuid::Uuid::new_v4().to_string()).unwrap();
+        let db_path = state.path().join("db");
+        let store = Store::open(&db_path).unwrap();
+        let out = work.path().join("out");
+        let receiver = Receiver::prepare(&out, m.clone(), store.clone(), "peer").unwrap();
+        let filler_path = work.path().join("filler");
+        let mut filler = File::create(&filler_path).unwrap();
+        let block = vec![0u8; 1024 * 1024];
+        let mut filled = 0;
+        loop {
+            match filler.write_all(&block) {
+                Ok(()) => {
+                    filled += block.len();
+                    assert!(filled <= 32 * 1024 * 1024, "volume exceeds test limit");
+                }
+                Err(error) => {
+                    assert_eq!(error.raw_os_error(), Some(28));
+                    break;
+                }
+            }
+        }
+        let error = receiver.accept(0, &bytes).unwrap_err();
+        assert_eq!(
+            error
+                .downcast_ref::<std::io::Error>()
+                .unwrap()
+                .raw_os_error(),
+            Some(28)
+        );
+        assert!(store.indexes(&m.id).unwrap().is_empty());
+        assert!(receiver.finish().is_err());
+        assert!(!receiver.destination.exists());
+        drop(filler);
+        std::fs::remove_file(filler_path).unwrap();
+        drop(receiver);
+        drop(store);
+        let store = Store::open(&db_path).unwrap();
+        let recovered = Receiver::prepare(&out, m.clone(), store.clone(), "peer").unwrap();
+        assert_eq!(recovered.reconcile().unwrap(), vec![0]);
+        recovered.accept(0, &bytes).unwrap();
+        recovered.finish().unwrap();
+        assert_eq!(std::fs::read(&recovered.destination).unwrap(), bytes);
+        assert_eq!(store.transfer_status(&m.id).unwrap(), "complete");
+    }
     #[test]
     fn source_mutation() {
         let d = tempfile::tempdir().unwrap();
