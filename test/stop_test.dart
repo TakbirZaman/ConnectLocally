@@ -10,8 +10,12 @@ import 'package:localconnect/src/rust/frb_generated.dart';
 class PendingProbeApi extends Fake implements RustLibApi {
   final probe = Completer<Peer>();
   int shutdownCalls = 0;
+  int probeCalls = 0;
   @override
-  Future<Peer> crateApiProbe({required String address}) => probe.future;
+  Future<Peer> crateApiProbe({required String address}) {
+    probeCalls++;
+    return probe.future;
+  }
   @override
   Future<void> crateApiShutdown() async {
     shutdownCalls++;
@@ -45,7 +49,11 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Connect'));
       await tester.pump();
-      expect(find.byType(LinearProgressIndicator), findsOneWidget);
+      expect(api.probeCalls, 1);
+      expect(
+        tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Connect')).onPressed,
+        isNull,
+      );
       await tester.tap(find.text('Stop all'));
       await tester.pump();
       expect(api.shutdownCalls, 1);

@@ -727,8 +727,7 @@ class _HomeState extends ConsumerState<Home> with WidgetsBindingObserver {
     var remember = false;
     var submitting = false;
     String? error;
-    try {
-      return await showDialog<Peer>(
+    final route = DialogRoute<Peer>(
         context: context,
         barrierDismissible: false,
         builder:
@@ -835,7 +834,10 @@ class _HomeState extends ConsumerState<Home> with WidgetsBindingObserver {
               },
             ),
       );
+    try {
+      return await Navigator.of(context).push<Peer>(route);
     } finally {
+      await route.completed;
       code.clear();
       code.dispose();
     }
