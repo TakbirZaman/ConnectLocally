@@ -29,9 +29,18 @@ jobs:
       - run: flutter pub get --enforce-lockfile
       - name: Resolve pinned new pairing dependencies
         run: cargo check --manifest-path rust/Cargo.toml --no-default-features --features bridge
+      - uses: actions/cache@v4
+        id: tools-cache
+        with:
+          path: |
+            ~/.cargo/bin/flutter_rust_bridge_codegen
+            ~/.cargo/bin/cargo-expand
+          key: linux-frb-2.11.1-expand-1.0.113-rust-1.88-v1
       - name: Install matching bridge generator
+        if: steps.tools-cache.outputs.cache-hit != 'true'
         run: cargo install flutter_rust_bridge_codegen --version 2.11.1 --locked
       - name: Install compatible macro expander
+        if: steps.tools-cache.outputs.cache-hit != 'true'
         run: cargo install cargo-expand --version 1.0.113 --locked
       - run: flutter_rust_bridge_codegen generate
       - run: cargo fmt --manifest-path rust/Cargo.toml
