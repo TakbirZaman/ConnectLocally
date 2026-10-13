@@ -22,6 +22,15 @@ jobs:
       - run: cargo fmt --manifest-path rust/Cargo.toml --check
       - run: cargo clippy --locked --manifest-path rust/Cargo.toml --all-targets -- -D warnings
       - run: cargo test --locked --manifest-path rust/Cargo.toml
+      - name: Disk-full recovery on isolated disposable tmpfs
+        shell: bash
+        run: |
+          volume="$(mktemp -d)"
+          cleanup() { sudo umount "$volume"; rmdir "$volume"; }
+          sudo mount -t tmpfs -o size=16m,mode=1777 tmpfs "$volume"
+          trap cleanup EXIT
+          touch "$volume/.localconnect-disposable-volume"
+          LOCALCONNECT_FAILURE_VOLUME="$volume" cargo test --locked --manifest-path rust/Cargo.toml --lib disk_full_does_not_verify_chunk_and_recovers -- --ignored --exact transfer::tests::disk_full_does_not_verify_chunk_and_recovers
       - run: python3 tests/run_x11.py
       - name: Large file and RSS acceptance (manual workflow only)
         if: github.event_name == 'workflow_dispatch'
