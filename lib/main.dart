@@ -671,8 +671,10 @@ class _HomeState extends ConsumerState<Home> with WidgetsBindingObserver {
                 Navigator.pop(ctx, paired);
               }
             } catch (failure) {
-              if (ctx.mounted) update(() => error =
-                'Could not pair. Check the code, generate a fresh one if expired, and use the latest app on both devices.\n$failure');
+              if (ctx.mounted) {
+                update(() => error =
+                  'Could not pair. Check the code, generate a fresh one if expired, and use the latest app on both devices.\n$failure');
+              }
             } finally {
               if (ctx.mounted) update(() => submitting = false);
             }
@@ -806,7 +808,7 @@ class _HomeState extends ConsumerState<Home> with WidgetsBindingObserver {
                         icon: const Icon(Icons.delete_outline),
                         onPressed: () async {
                           await core.forgetPeer(fingerprint: row[0] as String);
-                          if (selected?.fingerprint == row[0]) selected = null;
+                          if (selected?.fingerprint == row[0]) { selected = null; }
                           if (ctx.mounted) Navigator.pop(ctx);
                           if (mounted) setState(() {});
                         },
