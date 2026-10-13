@@ -278,8 +278,9 @@ impl Engine {
             let store = self.store.clone();
             let fingerprint = peer.to_owned();
             blocking(move || store.forget(&fingerprint)).await?;
-            self.session_trust.lock().unwrap_or_else(|error| error.into_inner())
-                .insert(peer.to_owned(), name.to_owned());
+            let mut session = self.session_trust.lock().unwrap_or_else(|error| error.into_inner());
+            ensure!(!self.stop.is_cancelled(), "engine stopped during pairing");
+            session.insert(peer.to_owned(), name.to_owned());
         }
         Ok(())
     }
@@ -637,7 +638,12 @@ impl Engine {
                 matches!(timeout(Duration::from_secs(15), read_message_bounded(&mut s, false)).await??, Message::Commit),
                 "pairing commit required"
             );
-            self.remember_choice(&fp, name, ticket.remember).await?;
+            {
+                let mut codes = self.codes.lock().await;
+                codes.complete(&ticket.id)?;
+                ensure!(!self.stop.is_cancelled(), "engine stopped during pairing");
+                self.remember_choice(&fp, name, ticket.remember).await?;
+            }
             write_message(&mut s, &Message::Ready).await?;
             let mut peer_address = s.get_ref().0.peer_addr()?;
             peer_address.set_port(*port);

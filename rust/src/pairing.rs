@@ -27,9 +27,15 @@ struct Window {
     attempts: u8,
     remember: bool,
 }
+struct Admission {
+    id: String,
+    expires: Instant,
+    expires_wall: SystemTime,
+}
 #[derive(Default)]
 pub struct CodeGate {
     window: Option<Window>,
+    admitted: Option<Admission>,
     created: Option<Instant>,
 }
 pub struct Ticket {
@@ -48,6 +54,7 @@ impl CodeGate {
         let id = uuid::Uuid::new_v4().to_string();
         let now = Instant::now();
         self.created = Some(now);
+        self.admitted = None;
         self.window = Some(Window {
             id: id.clone(),
             code: code.clone(),
@@ -86,11 +93,25 @@ impl CodeGate {
             }),
             "Pairing code expired, replaced or already used"
         );
-        self.window = None;
+        let window = self.window.take().unwrap();
+        self.admitted = Some(Admission {
+            id: window.id,
+            expires: window.expires,
+            expires_wall: window.expires_wall,
+        });
+        Ok(())
+    }
+    pub fn complete(&mut self, id: &str) -> Result<()> {
+        ensure!(self.admitted.as_ref().is_some_and(|admission| {
+            admission.id == id && Instant::now() < admission.expires
+                && SystemTime::now() < admission.expires_wall
+        }), "Pairing was cancelled, replaced or expired");
+        self.admitted = None;
         Ok(())
     }
     pub fn clear(&mut self) {
         self.window = None;
+        self.admitted = None;
     }
 }
 
@@ -192,6 +213,21 @@ mod tests {
         assert!(gate.attempt().is_err());
         let id = gate.window.as_ref().unwrap().id.clone();
         assert!(gate.consume(&id).is_err());
+    }
+    #[test]
+    fn closing_code_revokes_incomplete_admission() {
+        let mut gate = CodeGate::default();
+        let display = gate.begin(false).unwrap();
+        gate.attempt().unwrap();
+        gate.consume(&display.id).unwrap();
+        gate.clear();
+        assert!(gate.complete(&display.id).is_err());
+        gate.created = Some(Instant::now() - REGENERATE_DELAY);
+        let display = gate.begin(false).unwrap();
+        gate.attempt().unwrap();
+        gate.consume(&display.id).unwrap();
+        gate.complete(&display.id).unwrap();
+        assert!(gate.complete(&display.id).is_err());
     }
     #[test]
     fn malformed_and_replayed_messages_fail() {
