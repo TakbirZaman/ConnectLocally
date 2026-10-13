@@ -93,8 +93,12 @@ Repository CI results are now recorded in the section below.
 
 ## Required real-device acceptance checks
 
-1. Two private-LAN devices: deny pairing, compare complete fingerprints, approve
-   both sides, forget trust, verify all new bulk/input requests fail after removal.
+1. Two private-LAN devices on the updated build: generate a six-digit code on
+   one device and enter it on the other. Test wrong codes, three-attempt exhaustion,
+   120-second expiry, Close, single-use rejection, leading zeros and Stop all.
+   Default access must disappear after engine restart. Enable Remember on both
+   devices and verify reconnect after restart; remove trust and verify all new
+   bulk/input requests fail. Remote control still requires separate approval.
 2. Empty/small/multi-chunk/>4 GiB files: independently compare SHA-256 after
    completion and Android SAF export. Measure RSS as file size grows.
 3. Wi-Fi loss, DHCP changes and process force-kill/restart: resume only missing or

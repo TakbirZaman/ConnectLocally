@@ -8,74 +8,10 @@ on:
 permissions:
   contents: read
 jobs:
-  bindings:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        if: github.job != 'bindings'
-        with:
-          name: pairing-generated-source
-      - name: Use generated bridge and formatted source
-        if: github.job != 'bindings'
-        run: tar -xzf generated-source.tar.gz
-      - uses: subosito/flutter-action@v2
-        with:
-          flutter-version: 3.29.3
-          cache: true
-      - run: sudo apt-get update && sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libxcb1-dev libxkbcommon-dev libdbus-1-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-pipewire gstreamer1.0-plugins-good xvfb xauth
-      - run: rustup toolchain install 1.88.0 --component clippy,rustfmt
-      - run: flutter pub get --enforce-lockfile
-      - name: Resolve pinned new pairing dependencies
-        run: cargo check --manifest-path rust/Cargo.toml --no-default-features --features bridge
-      - uses: actions/cache@v4
-        id: tools-cache
-        with:
-          path: |
-            ~/.cargo/bin/flutter_rust_bridge_codegen
-            ~/.cargo/bin/cargo-expand
-          key: linux-frb-2.11.1-expand-1.0.113-rust-1.88-v1
-      - name: Install matching bridge generator
-        if: steps.tools-cache.outputs.cache-hit != 'true'
-        run: cargo install flutter_rust_bridge_codegen --version 2.11.1 --locked
-      - name: Install compatible macro expander
-        if: steps.tools-cache.outputs.cache-hit != 'true'
-        run: cargo install cargo-expand --version 1.0.113 --locked
-      - run: flutter_rust_bridge_codegen generate
-      - run: cargo fmt --manifest-path rust/Cargo.toml
-      - run: dart format lib/main.dart test
-      - name: Export generated text for source review
-        run: |
-          python3 - <<'PY'
-          import json, pathlib, subprocess
-          names = subprocess.check_output(["git", "diff", "--name-only"], text=True).splitlines()
-          names += subprocess.check_output(["git", "ls-files", "--others", "--exclude-standard"], text=True).splitlines()
-          for name in sorted(set(names)):
-              if name == "rust/Cargo.lock" or name.startswith(("rust/src/", "rust/tests/", "lib/src/rust/")) or name == "lib/main.dart" or name.startswith("test/"):
-                  path = pathlib.Path(name)
-                  if path.is_file():
-                      print("LOCALCONNECT_GENERATED_JSON " + json.dumps({"path": name, "content": path.read_text()}))
-          PY
-      - name: Package exact generated source for validation and commit
-        run: tar -czf generated-source.tar.gz rust/Cargo.lock rust/src rust/tests lib/src/rust lib/main.dart test
-      - uses: actions/upload-artifact@v4
-        with:
-          name: pairing-generated-source
-          path: generated-source.tar.gz
-          if-no-files-found: error
   linux:
-    needs: bindings
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        if: github.job != 'bindings'
-        with:
-          name: pairing-generated-source
-      - name: Use generated bridge and formatted source
-        if: github.job != 'bindings'
-        run: tar -xzf generated-source.tar.gz
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: 3.29.3
@@ -113,17 +49,9 @@ jobs:
           name: linux-x64
           path: dist/LocalConnect-Linux-x64.tar.gz*
   windows:
-    needs: bindings
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        if: github.job != 'bindings'
-        with:
-          name: pairing-generated-source
-      - name: Use generated bridge and formatted source
-        if: github.job != 'bindings'
-        run: tar -xzf generated-source.tar.gz
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: 3.29.3
@@ -142,14 +70,9 @@ jobs:
           name: windows-x64
           path: dist/LocalConnect-Windows-x64.zip*
   android:
-    needs: bindings
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          name: pairing-generated-source
-      - run: tar -xzf generated-source.tar.gz
       - uses: actions/setup-java@v4
         with:
           distribution: temurin

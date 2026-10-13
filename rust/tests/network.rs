@@ -363,22 +363,37 @@ async fn code_pairing_transfers_with_session_trust_and_cannot_reuse_code() {
         serde_json::from_str(&bb.begin_pairing_code(false).await.unwrap()).unwrap();
     let code = display["code"].as_str().unwrap().to_owned();
     let address = format!("127.0.0.1:{}", bb.port);
-    let peer = aa.pair_with_code(address.clone(), code.clone(), false).await.unwrap();
+    let peer = aa
+        .pair_with_code(address.clone(), code.clone(), false)
+        .await
+        .unwrap();
     assert!(!aa.store.trusted(&bb.identity.fingerprint).unwrap());
     assert!(!bb.store.trusted(&aa.identity.fingerprint).unwrap());
     let source = a.path().join("code-paired.bin");
     let bytes = vec![19u8; 128 * 1024];
     std::fs::write(&source, &bytes).unwrap();
-    let id = aa.send(source.to_str().unwrap().into(), peer.clone()).await.unwrap();
+    let id = aa
+        .send(source.to_str().unwrap().into(), peer.clone())
+        .await
+        .unwrap();
     tokio::time::timeout(Duration::from_secs(30), async {
         loop {
-            if bb.store.transfer_status(&id).is_ok_and(|status| status == "complete") {
+            if bb
+                .store
+                .transfer_status(&id)
+                .is_ok_and(|status| status == "complete")
+            {
                 break;
             }
             tokio::time::sleep(Duration::from_millis(20)).await;
         }
-    }).await.unwrap();
-    assert_eq!(std::fs::read(b.path().join("received/code-paired.bin")).unwrap(), bytes);
+    })
+    .await
+    .unwrap();
+    assert_eq!(
+        std::fs::read(b.path().join("received/code-paired.bin")).unwrap(),
+        bytes
+    );
     assert!(aa.pair_with_code(address, code, false).await.is_err());
     aa.forget(peer.fingerprint.clone()).await.unwrap();
     assert!(aa.start_control(peer.clone()).await.is_err());
@@ -403,9 +418,15 @@ async fn code_pairing_rejects_wrong_codes_and_exhausted_window_without_trust() {
     let wrong = if code == "000000" { "000001" } else { "000000" };
     let address = format!("127.0.0.1:{}", bb.port);
     for _ in 0..3 {
-        assert!(aa.pair_with_code(address.clone(), wrong.into(), false).await.is_err());
+        assert!(aa
+            .pair_with_code(address.clone(), wrong.into(), false)
+            .await
+            .is_err());
     }
-    assert!(aa.pair_with_code(address.clone(), code, false).await.is_err());
+    assert!(aa
+        .pair_with_code(address.clone(), code, false)
+        .await
+        .is_err());
     assert!(!aa.store.trusted(&bb.identity.fingerprint).unwrap());
     assert!(!bb.store.trusted(&aa.identity.fingerprint).unwrap());
     let peer = aa.probe(address).await.unwrap();
@@ -425,7 +446,9 @@ async fn code_pairing_remember_option_survives_restart_and_forget_revokes() {
         format!("127.0.0.1:{}", bb.port),
         display["code"].as_str().unwrap().into(),
         true,
-    ).await.unwrap();
+    )
+    .await
+    .unwrap();
     assert!(aa.store.trusted(&bb.identity.fingerprint).unwrap());
     assert!(bb.store.trusted(&aa.identity.fingerprint).unwrap());
     aa.shutdown().await;
@@ -445,7 +468,9 @@ async fn code_pairing_remember_option_survives_restart_and_forget_revokes() {
                 }
             }
         }
-    }).await.unwrap();
+    })
+    .await
+    .unwrap();
     aa.forget(peer.fingerprint.clone()).await.unwrap();
     assert!(!aa.store.trusted(&peer.fingerprint).unwrap());
     assert!(aa.start_control(peer).await.is_err());

@@ -189,7 +189,6 @@ pub(crate) async fn native_stop_session(expected: u64, id: String) {
     }
 }
 
-
 pub async fn begin_pairing_code(remember: bool) -> anyhow::Result<String> {
     engine().await?.begin_pairing_code(remember).await
 }
@@ -198,7 +197,10 @@ pub async fn cancel_pairing_code() -> anyhow::Result<()> {
     Ok(())
 }
 pub async fn pair_with_code(address: String, code: String, remember: bool) -> anyhow::Result<Peer> {
-    engine().await?.pair_with_code(address, code, remember).await
+    engine()
+        .await?
+        .pair_with_code(address, code, remember)
+        .await
 }
 
 #[cfg(test)]

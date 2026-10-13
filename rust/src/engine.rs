@@ -243,7 +243,12 @@ impl Engine {
         });
     }
     pub(crate) async fn trusted(&self, p: &str) -> Result<bool> {
-        if self.session_trust.lock().unwrap_or_else(|error| error.into_inner()).contains_key(p) {
+        if self
+            .session_trust
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .contains_key(p)
+        {
             return Ok(true);
         }
         let s = self.store.clone();
@@ -254,7 +259,10 @@ impl Engine {
         let s = self.store.clone();
         let mut rows = blocking(move || s.peers()).await?;
         {
-            let session = self.session_trust.lock().unwrap_or_else(|error| error.into_inner());
+            let session = self
+                .session_trust
+                .lock()
+                .unwrap_or_else(|error| error.into_inner());
             for (fingerprint, name) in session.iter() {
                 if !rows.iter().any(|(peer, _)| peer == fingerprint) {
                     rows.push((fingerprint.clone(), name.clone()));
@@ -265,7 +273,9 @@ impl Engine {
     }
     pub async fn begin_pairing_code(&self, remember: bool) -> Result<String> {
         ensure!(!self.stop.is_cancelled(), "engine stopped");
-        Ok(serde_json::to_string(&self.codes.lock().await.begin(remember)?)?)
+        Ok(serde_json::to_string(
+            &self.codes.lock().await.begin(remember)?,
+        )?)
     }
     pub async fn cancel_pairing_code(&self) {
         self.codes.lock().await.clear();
@@ -273,12 +283,18 @@ impl Engine {
     async fn remember_choice(&self, peer: &str, name: &str, remember: bool) -> Result<()> {
         if remember {
             self.remember(peer, name).await?;
-            self.session_trust.lock().unwrap_or_else(|error| error.into_inner()).remove(peer);
+            self.session_trust
+                .lock()
+                .unwrap_or_else(|error| error.into_inner())
+                .remove(peer);
         } else {
             let store = self.store.clone();
             let fingerprint = peer.to_owned();
             blocking(move || store.forget(&fingerprint)).await?;
-            let mut session = self.session_trust.lock().unwrap_or_else(|error| error.into_inner());
+            let mut session = self
+                .session_trust
+                .lock()
+                .unwrap_or_else(|error| error.into_inner());
             ensure!(!self.stop.is_cancelled(), "engine stopped during pairing");
             session.insert(peer.to_owned(), name.to_owned());
         }
@@ -298,7 +314,10 @@ impl Engine {
         let store = self.store.clone();
         let fingerprint = p.clone();
         blocking(move || store.forget(&fingerprint)).await?;
-        self.session_trust.lock().unwrap_or_else(|error| error.into_inner()).remove(&p);
+        self.session_trust
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .remove(&p);
         if let Some(c) = self.controls.lock().await.remove(&p) {
             c.cancel();
         }
@@ -433,30 +452,38 @@ impl Engine {
         crate::pairing::validate_code(&code)?;
         let (mut stream, peer) = self.connect(&addr, None).await?;
         let mut channel = [0u8; 32];
-        stream.get_ref().1.export_keying_material(
-            &mut channel, b"localconnect/code/v1", None,
-        )?;
-        let (state, exchange) = crate::pairing::start_a(
-            &code, &self.identity.fingerprint, &peer.fingerprint,
-        )?;
-        write_message(&mut stream, &Message::CodePair {
-            name: self.config.name.clone(),
-            port: self.port,
-            exchange,
-        }).await?;
+        stream
+            .get_ref()
+            .1
+            .export_keying_material(&mut channel, b"localconnect/code/v1", None)?;
+        let (state, exchange) =
+            crate::pairing::start_a(&code, &self.identity.fingerprint, &peer.fingerprint)?;
+        write_message(
+            &mut stream,
+            &Message::CodePair {
+                name: self.config.name.clone(),
+                port: self.port,
+                exchange,
+            },
+        )
+        .await?;
         let exchange = match read_deadline(&mut stream).await? {
             Message::CodeExchange { exchange } => exchange,
             Message::Denied { reason } => bail!("pairing unavailable: {reason}"),
             _ => bail!("Code pairing requires updated LocalConnect on both devices"),
         };
         let key = crate::pairing::finish(state, &exchange)?;
-        write_message(&mut stream, &Message::CodeProof {
-            proof: crate::pairing::proof(&key, &channel, "client")?,
-        }).await?;
+        write_message(
+            &mut stream,
+            &Message::CodeProof {
+                proof: crate::pairing::proof(&key, &channel, "client")?,
+            },
+        )
+        .await?;
         match read_deadline(&mut stream).await? {
-            Message::CodeProof { proof } => crate::pairing::verify(
-                &key, &channel, "server", &proof,
-            )?,
+            Message::CodeProof { proof } => {
+                crate::pairing::verify(&key, &channel, "server", &proof)?
+            }
             _ => bail!("Pairing code failed or expired"),
         }
         write_message(&mut stream, &Message::Commit).await?;
@@ -464,12 +491,16 @@ impl Engine {
             matches!(read_deadline(&mut stream).await?, Message::Ready),
             "pairing commit failed"
         );
-        self.remember_choice(&peer.fingerprint, &peer.name, remember).await?;
+        self.remember_choice(&peer.fingerprint, &peer.name, remember)
+            .await?;
         self.start_control(peer.clone()).await?;
-        self.emit("paired", serde_json::json!({
-            "fingerprint": peer.fingerprint, "name": peer.name,
-            "address": peer.address, "sessionOnly": !remember,
-        }));
+        self.emit(
+            "paired",
+            serde_json::json!({
+                "fingerprint": peer.fingerprint, "name": peer.name,
+                "address": peer.address, "sessionOnly": !remember,
+            }),
+        );
         Ok(peer)
     }
 
@@ -579,7 +610,10 @@ impl Engine {
         }
     }
     async fn serve(self: &Arc<Self>, tcp: TcpStream) -> Result<()> {
-        ensure!(lan(tcp.peer_addr()?.ip()), "only local-network peers allowed");
+        ensure!(
+            lan(tcp.peer_addr()?.ip()),
+            "only local-network peers allowed"
+        );
         tcp.set_nodelay(true)?;
         let mut s = timeout(
             Duration::from_secs(10),
@@ -605,8 +639,16 @@ impl Engine {
         .await?;
         let known_peer = self.trusted(&fp).await?;
         let first = timeout(DEADLINE, read_message_bounded(&mut s, known_peer)).await??;
-        if let Message::CodePair { name, port, exchange } = &first {
-            ensure!(name.len() <= 64 && *port > 0, "invalid code pairing metadata");
+        if let Message::CodePair {
+            name,
+            port,
+            exchange,
+        } = &first
+        {
+            ensure!(
+                name.len() <= 64 && *port > 0,
+                "invalid code pairing metadata"
+            );
             let ticket = match self.codes.lock().await.attempt() {
                 Ok(ticket) => ticket,
                 Err(_) => {
@@ -617,25 +659,33 @@ impl Engine {
                 }
             };
             let mut channel = [0u8; 32];
-            s.get_ref().1.export_keying_material(
-                &mut channel, b"localconnect/code/v1", None,
-            )?;
-            let (state, reply) = crate::pairing::start_b(
-                &ticket.code, &fp, &self.identity.fingerprint,
-            )?;
+            s.get_ref()
+                .1
+                .export_keying_material(&mut channel, b"localconnect/code/v1", None)?;
+            let (state, reply) =
+                crate::pairing::start_b(&ticket.code, &fp, &self.identity.fingerprint)?;
             let key = crate::pairing::finish(state, exchange)?;
             write_message(&mut s, &Message::CodeExchange { exchange: reply }).await?;
-            let proof = match timeout(Duration::from_secs(15), read_message_bounded(&mut s, false)).await?? {
+            let proof = match timeout(Duration::from_secs(15), read_message_bounded(&mut s, false))
+                .await??
+            {
                 Message::CodeProof { proof } => proof,
                 _ => bail!("pairing confirmation required"),
             };
             crate::pairing::verify(&key, &channel, "client", &proof)?;
             self.codes.lock().await.consume(&ticket.id)?;
-            write_message(&mut s, &Message::CodeProof {
-                proof: crate::pairing::proof(&key, &channel, "server")?,
-            }).await?;
+            write_message(
+                &mut s,
+                &Message::CodeProof {
+                    proof: crate::pairing::proof(&key, &channel, "server")?,
+                },
+            )
+            .await?;
             ensure!(
-                matches!(timeout(Duration::from_secs(15), read_message_bounded(&mut s, false)).await??, Message::Commit),
+                matches!(
+                    timeout(Duration::from_secs(15), read_message_bounded(&mut s, false)).await??,
+                    Message::Commit
+                ),
                 "pairing commit required"
             );
             {
@@ -647,11 +697,14 @@ impl Engine {
             write_message(&mut s, &Message::Ready).await?;
             let mut peer_address = s.get_ref().0.peer_addr()?;
             peer_address.set_port(*port);
-            self.emit("paired", serde_json::json!({
-                "fingerprint": fp, "name": name,
-                "address": peer_address.to_string(),
-                "sessionOnly": !ticket.remember, "codeWindow": ticket.id,
-            }));
+            self.emit(
+                "paired",
+                serde_json::json!({
+                    "fingerprint": fp, "name": name,
+                    "address": peer_address.to_string(),
+                    "sessionOnly": !ticket.remember, "codeWindow": ticket.id,
+                }),
+            );
             return Ok(());
         }
         if let Message::Pair { name } = first {
@@ -1166,7 +1219,10 @@ impl Engine {
     pub async fn shutdown(&self) {
         self.stop.cancel();
         self.codes.lock().await.clear();
-        self.session_trust.lock().unwrap_or_else(|error| error.into_inner()).clear();
+        self.session_trust
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .clear();
         let input_cleanup = self.remote.stop_all();
         let _ = self.mdns.shutdown();
         loop {

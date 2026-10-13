@@ -46,7 +46,8 @@ pub struct Ticket {
 impl CodeGate {
     pub fn begin(&mut self, remember: bool) -> Result<CodeDisplay> {
         ensure!(
-            self.created.is_none_or(|created| created.elapsed() >= REGENERATE_DELAY),
+            self.created
+                .is_none_or(|created| created.elapsed() >= REGENERATE_DELAY),
             "Wait 15 seconds before generating another code"
         );
         let mut rng = rand::rngs::OsRng;
@@ -72,11 +73,14 @@ impl CodeGate {
         })
     }
     pub fn attempt(&mut self) -> Result<Ticket> {
-        let window = self.window.as_mut().ok_or_else(|| {
-            anyhow::anyhow!("Generate a pairing code on the other device first")
-        })?;
+        let window = self
+            .window
+            .as_mut()
+            .ok_or_else(|| anyhow::anyhow!("Generate a pairing code on the other device first"))?;
         ensure!(
-            Instant::now() < window.expires && SystemTime::now() < window.expires_wall && window.attempts > 0,
+            Instant::now() < window.expires
+                && SystemTime::now() < window.expires_wall
+                && window.attempts > 0,
             "Pairing code expired or exhausted; generate a new code"
         );
         window.attempts -= 1;
@@ -89,7 +93,9 @@ impl CodeGate {
     pub fn consume(&mut self, id: &str) -> Result<()> {
         ensure!(
             self.window.as_ref().is_some_and(|window| {
-                window.id == id && Instant::now() < window.expires && SystemTime::now() < window.expires_wall
+                window.id == id
+                    && Instant::now() < window.expires
+                    && SystemTime::now() < window.expires_wall
             }),
             "Pairing code expired, replaced or already used"
         );
@@ -102,10 +108,14 @@ impl CodeGate {
         Ok(())
     }
     pub fn complete(&mut self, id: &str) -> Result<()> {
-        ensure!(self.admitted.as_ref().is_some_and(|admission| {
-            admission.id == id && Instant::now() < admission.expires
-                && SystemTime::now() < admission.expires_wall
-        }), "Pairing was cancelled, replaced or expired");
+        ensure!(
+            self.admitted.as_ref().is_some_and(|admission| {
+                admission.id == id
+                    && Instant::now() < admission.expires
+                    && SystemTime::now() < admission.expires_wall
+            }),
+            "Pairing was cancelled, replaced or expired"
+        );
         self.admitted = None;
         Ok(())
     }
@@ -156,7 +166,9 @@ fn confirmation(key: &[u8], channel: &[u8; 32], role: &str) -> Result<Hmac<Sha25
     Ok(mac)
 }
 pub fn proof(key: &[u8], channel: &[u8; 32], role: &str) -> Result<String> {
-    Ok(hex::encode(confirmation(key, channel, role)?.finalize().into_bytes()))
+    Ok(hex::encode(
+        confirmation(key, channel, role)?.finalize().into_bytes(),
+    ))
 }
 pub fn verify(key: &[u8], channel: &[u8; 32], role: &str, proof: &str) -> Result<()> {
     ensure!(proof.len() == 64, "invalid pairing proof length");

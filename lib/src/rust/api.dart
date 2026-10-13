@@ -10,7 +10,7 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'remote.dart';
 import 'remote_engine.dart';
 
-// These functions are ignored because they are not marked as `pub`: `cell`, `engine`, `native_remote_shutdown`
+// These functions are ignored because they are not marked as `pub`: `cell`, `engine`
 
 Future<String> initialize({
   required String dataDir,
@@ -127,4 +127,20 @@ Future<void> publishNativeFrame({
   geometry: geometry,
   width: width,
   height: height,
+);
+
+Future<String> beginPairingCode({required bool remember}) =>
+    RustLib.instance.api.crateApiBeginPairingCode(remember: remember);
+
+Future<void> cancelPairingCode() =>
+    RustLib.instance.api.crateApiCancelPairingCode();
+
+Future<Peer> pairWithCode({
+  required String address,
+  required String code,
+  required bool remember,
+}) => RustLib.instance.api.crateApiPairWithCode(
+  address: address,
+  code: code,
+  remember: remember,
 );
