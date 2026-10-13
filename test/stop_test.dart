@@ -32,14 +32,18 @@ void main() {
           child: const MaterialApp(home: Home()),
         ),
       );
+      await tester.tap(find.text('Connect by IP address'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byType(TextField));
       await tester.enterText(find.byType(TextField), '192.168.1.2:53317');
-      await tester.tap(find.text('Connect / pair'));
+      await tester.ensureVisible(find.text('Connect'));
+      await tester.tap(find.text('Connect'));
       await tester.pump();
       expect(find.byType(LinearProgressIndicator), findsOneWidget);
       await tester.tap(find.text('Stop all'));
       await tester.pump();
       expect(api.shutdownCalls, 1);
-      expect(find.text('Start and choose receive folder'), findsOneWidget);
+      expect(find.text('Start LocalConnect'), findsOneWidget);
       api.probe.complete(
         const Peer(
           fingerprint: 'late',
@@ -49,7 +53,7 @@ void main() {
       );
       await tester.pump();
       expect(find.textContaining('Pair with'), findsNothing);
-      expect(find.textContaining('Selected:'), findsNothing);
+      expect(find.text('Late peer'), findsNothing);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
       RustLib.dispose();

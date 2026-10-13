@@ -17,7 +17,21 @@ const native = MethodChannel('localconnect/platform');
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await RustLib.init();
-  runApp(const ProviderScope(child: MaterialApp(home: Home())));
+  runApp(ProviderScope(child: MaterialApp(
+    debugShowCheckedModeBanner: false,
+    title: 'LocalConnect',
+    theme: ThemeData(
+      useMaterial3: true,
+      colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xff155eef)),
+      scaffoldBackgroundColor: const Color(0xfff5f7fb),
+      inputDecorationTheme: const InputDecorationTheme(
+        border: OutlineInputBorder(),
+        filled: true,
+        fillColor: Colors.white,
+      ),
+    ),
+    home: const Home(),
+  )));
 }
 
 class Home extends ConsumerStatefulWidget {
@@ -33,6 +47,7 @@ class _HomeState extends ConsumerState<Home> with WidgetsBindingObserver {
   Peer? selected;
   String receiveDir = '';
   bool busy = false;
+  int page = 0;
   Future<void>? stopping;
   Future<void>? starting;
   int operationEpoch = 0;
@@ -453,7 +468,7 @@ class _HomeState extends ConsumerState<Home> with WidgetsBindingObserver {
     try {
       final yes = await confirm(
         'Approve ${request['name']}?',
-        'Compare this full SHA-256 fingerprint with the LOCAL fingerprint shown on the requesting device, in person or over an independent trusted channel.\n\n$fp\n\nThis grants file transfer only.',
+        'Compare both fingerprints with the requesting device. Names alone do not identify a device.\n\nTheir fingerprint:\n$fp\n\nYour fingerprint:\n${ref.read(localProvider).fingerprint}\n\nPairing allows file transfer. Remote access requires separate approval.',
       );
       if (!mounted || epoch != operationEpoch) return;
       await core.approvePair(fingerprint: fp, allow: yes);
@@ -536,7 +551,7 @@ class _HomeState extends ConsumerState<Home> with WidgetsBindingObserver {
     } else {
       final yes = await confirm(
         'Pair with ${peer.name}?',
-        'Compare this full fingerprint with the LOCAL fingerprint shown on that device. Discovery names are untrusted.\n\n${peer.fingerprint}\n\nThen approve the requesting fingerprint on that device.',
+        'Compare both fingerprints on the two devices. Names alone do not identify a device.\n\nTheir fingerprint:\n${peer.fingerprint}\n\nYour fingerprint:\n${ref.read(localProvider).fingerprint}\n\nAfter confirming here, approve the pairing request on the other device.',
       );
       if (!yes || !mounted || epoch != operationEpoch) return;
       final paired = await core.pair(
@@ -588,7 +603,7 @@ class _HomeState extends ConsumerState<Home> with WidgetsBindingObserver {
     if (mounted) {
       Navigator.of(context).popUntil((route) => route.isFirst);
       ref.read(localProvider.notifier).stopped();
-      setState(() => busy = false);
+      setState(() { busy = false; page = 0; });
     }
   }
 
@@ -636,236 +651,343 @@ class _HomeState extends ConsumerState<Home> with WidgetsBindingObserver {
     super.dispose();
   }
 
+  Future<void> showPassport(String id) async {
+    final epoch = operationEpoch;
+    final history = jsonDecode(await core.transferHistory()) as List<dynamic>;
+    final matches = history.where((row) => row['id'] == id).toList();
+    if (matches.isEmpty || matches.first['status'] != 'complete') {
+      throw StateError('A passport is available only for a completed transfer.');
+    }
+    final row = Map<String, dynamic>.from(matches.first as Map);
+    final passport = <String, dynamic>{
+      'format': 'localconnect-transfer-passport',
+      'version': 1,
+      'transferId': id,
+      'fileName': row['fileName'],
+      'fileBytes': row['fileBytes'],
+      'sha256': row['sha256'],
+      'peerFingerprint': row['peer'],
+      'direction': row['direction'],
+      'recordedAtUtc': DateTime.fromMillisecondsSinceEpoch(
+        (row['updatedAt'] as num).toInt() * 1000, isUtc: true).toIso8601String(),
+    };
+    if (!mounted || epoch != operationEpoch) return;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Transfer passport'),
+        content: SingleChildScrollView(child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('${row['fileName']}', style: Theme.of(ctx).textTheme.titleMedium),
+            Text(bytes(row['fileBytes'] as num)),
+            const SizedBox(height: 16),
+            const Text('SHA-256 verified at completion'),
+            const SizedBox(height: 8),
+            SelectableText('${row['sha256']}'),
+            const SizedBox(height: 16),
+            const Text('Peer fingerprint'),
+            const SizedBox(height: 8),
+            SelectableText('${row['peer']}'),
+            const SizedBox(height: 16),
+            const Text('An offline integrity record, not a signed receipt or a recheck of later file edits. Compare the hash with an independently trusted original.'),
+          ],
+        )),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+          FilledButton.icon(
+            onPressed: () async {
+              try {
+                await Clipboard.setData(ClipboardData(
+                  text: const JsonEncoder.withIndent('  ').convert(passport)));
+                if (mounted && ctx.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Passport copied. Share only with people you trust.')));
+                }
+              } catch (error) {
+                if (mounted) ref.read(localProvider.notifier).fail(error);
+              }
+            },
+            icon: const Icon(Icons.copy),
+            label: const Text('Copy passport')),
+        ],
+      ),
+    );
+  }
+
+  String bytes(num value) {
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    var amount = value.toDouble();
+    var unit = 0;
+    while (amount >= 1024 && unit < units.length - 1) {
+      amount /= 1024;
+      unit++;
+    }
+    return '${amount.toStringAsFixed(unit == 0 ? 0 : 1)} ${units[unit]}';
+  }
+
+  Widget panel(String title, String description, List<Widget> children,
+      {IconData? icon}) => Card(
+    elevation: 0,
+    margin: const EdgeInsets.only(bottom: 16),
+    child: Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (icon != null) Align(
+            alignment: Alignment.centerLeft,
+            child: Icon(icon, size: 30, color: Theme.of(context).colorScheme.primary),
+          ),
+          const SizedBox(height: 8),
+          Text(title, style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 6),
+          Text(description, style: Theme.of(context).textTheme.bodyMedium),
+          const SizedBox(height: 16),
+          ...children,
+        ],
+      ),
+    ),
+  );
+
+  Widget transferCard(String id, Map<String, dynamic> transfer) {
+    final status = '${transfer['status'] ?? 'pending'}';
+    final active = ['sending', 'receiving', 'reconnecting', 'hashing'].contains(status);
+    final receiving = transfer['direction'] == 'receive';
+    final total = (transfer['totalBytes'] as num?) ?? 0;
+    final verified = (transfer['verifiedBytes'] as num?) ?? 0;
+    final speed = (transfer['bytesPerSecond'] as num?) ?? 0;
+    return panel(
+      '${transfer['name'] ?? 'File transfer'}',
+      '${receiving ? 'Receiving' : 'Sending'} · ${status.replaceAll('_', ' ')}',
+      [
+        if (total > 0) ...[
+          LinearProgressIndicator(value: (verified / total).clamp(0.0, 1.0).toDouble()),
+          const SizedBox(height: 10),
+        ],
+        Text('${bytes(verified)} verified of ${bytes(total)}'),
+        if (active) Text('${bytes(speed)}/s'),
+        if (transfer['error'] != null) Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Text('${transfer['error']}', style: TextStyle(
+            color: Theme.of(context).colorScheme.error)),
+        ),
+        const SizedBox(height: 8),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          if (status == 'complete') OutlinedButton.icon(
+            onPressed: busy ? null : () => run(() => showPassport(id)),
+            icon: const Icon(Icons.verified_outlined),
+            label: const Text('Integrity passport')),
+          if (active) TextButton(
+            onPressed: busy ? null : () => run(() => core.cancelTransfer(id: id)),
+            child: const Text('Cancel transfer')),
+          if (!active && status != 'complete' && !receiving) FilledButton.tonal(
+            onPressed: busy ? null : () => run(() async {
+              if (address.text.trim().isNotEmpty) {
+                await core.updateTransferAddress(id: id, address: address.text.trim());
+              }
+              await core.resumeTransfer(id: id);
+            }),
+            child: const Text('Resume transfer')),
+          if (Platform.isAndroid && status == 'complete' && receiving &&
+              transfer['name'] is String) FilledButton.icon(
+            onPressed: busy ? null : () => run(() => native.invokeMethod<void>(
+              'exportFile', transfer['name'])),
+            icon: const Icon(Icons.save_alt),
+            label: const Text('Save to phone')),
+          if (!active) TextButton(
+            onPressed: busy ? null : () => run(() => cleanup(id)),
+            child: Text(status == 'complete' ? 'Remove from history' : 'Remove partial file')),
+        ]),
+      ],
+      icon: status == 'complete' ? Icons.check_circle_outline :
+        receiving ? Icons.download_outlined : Icons.upload_outlined,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(localProvider);
+    final titles = ['Devices', 'Files', 'Remote', 'Settings'];
+    final sessions = state.remoteSessions.entries.where(
+      (entry) => entry.value['status'] == 'active');
+    final content = <Widget>[];
+    if (!state.ready) {
+      content.add(panel('Connect your devices',
+        'Send files and share screens over your local Wi-Fi. Start on both devices to find each other.',
+        [
+          TextField(controller: name, decoration: const InputDecoration(
+            labelText: 'This device’s name', prefixIcon: Icon(Icons.devices))),
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            onPressed: busy ? null : () => run(start),
+            icon: const Icon(Icons.wifi),
+            label: Text(busy ? 'Starting…' : 'Start LocalConnect')),
+          const SizedBox(height: 12),
+          Text(Platform.isAndroid
+            ? 'Received files stay in the app until you choose Save to phone.'
+            : 'You will choose a folder for received files.'),
+        ], icon: Icons.connect_without_contact));
+    } else if (page == 0) {
+      if (selected != null) { content.add(panel(
+        selected!.name,
+        'Selected device · ${state.connections[selected!.fingerprint] ?? 'connecting'}',
+        [
+          Text(selected!.address),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: busy ? null : () => setState(() => page = 1),
+            icon: const Icon(Icons.send_outlined), label: const Text('Send a file')),
+        ], icon: Icons.devices)); }
+      content.add(panel('Nearby devices',
+        'Start LocalConnect on another device connected to the same Wi-Fi.',
+        [
+          if (state.devices.isEmpty) const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: Text('Looking for devices…\nIf none appear, use an IP address below.')),
+          for (final device in state.devices.values) ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const CircleAvatar(child: Icon(Icons.devices_other)),
+            title: Text('${device['name']}'),
+            subtitle: Text((device['addresses'] as List).join('\n')),
+            trailing: TextButton(
+              onPressed: busy || (device['addresses'] as List).isEmpty ? null :
+                () => run(() => connect((device['addresses'] as List).first as String)),
+              child: const Text('Connect'))),
+        ]));
+      content.add(Card(elevation: 0, child: ExpansionTile(
+        title: const Text('Connect by IP address'),
+        subtitle: const Text('Use this when automatic discovery is unavailable'),
+        leading: const Icon(Icons.link),
+        childrenPadding: const EdgeInsets.all(20),
+        children: [
+          TextField(controller: address,
+            keyboardType: TextInputType.url,
+            decoration: const InputDecoration(labelText: 'Device IP and port',
+              hintText: '192.168.1.20:53317'),
+            onSubmitted: busy ? null : (_) => run(() => connect(address.text.trim()))),
+          const SizedBox(height: 12),
+          FilledButton(onPressed: busy ? null :
+            () => run(() => connect(address.text.trim())), child: const Text('Connect')),
+        ])));
+    } else if (page == 1) {
+      content.add(panel('Send a file',
+        selected == null ? 'Connect to a device in the Devices tab first.' :
+          'Send securely to ${selected!.name}. Interrupted transfers can resume.',
+        [FilledButton.icon(
+          onPressed: busy || selected == null ? null : () => run(send),
+          icon: const Icon(Icons.upload_file),
+          label: const Text('Choose file to send'))], icon: Icons.folder_outlined));
+      content.add(Padding(padding: const EdgeInsets.only(bottom: 12),
+        child: Text('Transfer history', style: Theme.of(context).textTheme.titleMedium)));
+      if (state.transfers.isEmpty) { content.add(panel('No transfers yet',
+        'Files you send and receive will appear here with their progress.', [],
+        icon: Icons.swap_vert)); }
+      for (final entry in state.transfers.entries) {
+        content.add(transferCard(entry.key, entry.value));
+      }
+    } else if (page == 2) {
+      content.add(panel('View or control another device',
+        selected == null ? 'Connect to a device in the Devices tab first.' :
+          'Request access to ${selected!.name}. The other device must approve each session.',
+        [
+          FilledButton.icon(
+            onPressed: busy || selected == null ? null : () => run(() => viewRemote(false)),
+            icon: const Icon(Icons.screen_share_outlined), label: const Text('Request screen view')),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: busy || selected == null ? null : () => run(() => viewRemote(true)),
+            icon: const Icon(Icons.touch_app_outlined), label: const Text('Request remote control')),
+          const SizedBox(height: 12),
+          const Text('You stay in control: access requires approval and can be stopped at any time.'),
+        ], icon: Icons.desktop_windows_outlined));
+      if (Platform.isAndroid) { content.add(panel('Allow control of this phone',
+        'Android requires screen-capture consent for each session. To accept gestures, enable LocalConnect in Accessibility settings yourself.',
+        [OutlinedButton.icon(
+          onPressed: busy ? null : () => run(() => native.invokeMethod<void>('accessibilitySettings')),
+          icon: const Icon(Icons.accessibility_new),
+          label: const Text('Open Accessibility settings'))])); }
+    } else {
+      content.add(panel('This device', 'Listening on port ${state.port}', [
+        Text(name.text, style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 12),
+        const Text('Pairing fingerprint — compare the full value on both devices.'),
+        const SizedBox(height: 8),
+        SelectableText(state.fingerprint),
+        TextButton.icon(
+          onPressed: () => run(() => Clipboard.setData(ClipboardData(text: state.fingerprint))),
+          icon: const Icon(Icons.copy), label: const Text('Copy fingerprint')),
+        const Divider(),
+        Text(Platform.isAndroid ? 'Received files: private app storage' : 'Receive folder: $receiveDir'),
+      ], icon: Icons.verified_user_outlined));
+      content.add(panel('Preferences', 'Manage trust, storage limits, and device settings.', [
+        ListTile(contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.devices),
+          title: const Text('Trusted devices'),
+          subtitle: const Text('Review or remove paired devices'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: busy ? null : () => run(managePeers)),
+        ListTile(contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.tune), title: const Text('Transfer limits'),
+          subtitle: const Text('Advanced storage and transfer settings'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: busy ? null : () => run(editLimits)),
+        if (Platform.isAndroid) ListTile(contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.battery_saver_outlined),
+          title: const Text('Battery settings'),
+          subtitle: const Text('Review background restrictions on this phone'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: busy ? null : () => run(() => native.invokeMethod<void>('batterySettings'))),
+      ]));
+    }
     return Scaffold(
       appBar: AppBar(
         title: const Text('LocalConnect'),
         actions: [
-          if (state.ready)
-            IconButton(
-              onPressed: busy ? null : () => run(editLimits),
-              tooltip: 'Transfer limits',
-              icon: const Icon(Icons.settings),
-            ),
-          if (state.ready)
-            TextButton(
-              onPressed: () async {
-                try {
-                  await stop();
-                } catch (error) {
-                  if (mounted) ref.read(localProvider.notifier).fail(error);
-                }
-              },
-              child: const Text('Stop all'),
-            ),
+          if (state.ready) TextButton.icon(
+            onPressed: () async {
+              try { await stop(); } catch (error) {
+                if (mounted) ref.read(localProvider.notifier).fail(error);
+              }
+            },
+            icon: const Icon(Icons.stop_circle_outlined),
+            label: const Text('Stop all')),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          const Text(
-            'Secure LAN transfer and explicitly approved remote sessions. Capture/input require a supported platform adapter.',
-          ),
-          if (state.error != null)
-            Card(
-              color: Colors.red.shade50,
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: SelectableText(
-                  '${state.error!}\n${state.errorAction ?? ''}',
-                ),
-              ),
-            ),
-          if (!state.ready) ...[
-            TextField(
-              controller: name,
-              decoration: const InputDecoration(
-                labelText: 'Device display name',
-              ),
-            ),
-            FilledButton(
-              onPressed: busy ? null : () => run(start),
-              child: const Text('Start and choose receive folder'),
-            ),
-          ] else ...[
-            for (final session in state.remoteSessions.entries.where(
-              (entry) => entry.value['status'] == 'active',
-            ))
-              Card(
-                color: Colors.amber.shade100,
-                child: ListTile(
-                  title: Text('Active ${session.value['role']} session'),
-                  subtitle: Text('${session.value['peer']}'),
-                  trailing: FilledButton(
-                    onPressed: () async {
-                      try {
-                        await core.stopRemote(id: session.key);
-                      } catch (error) {
-                        if (mounted) {
-                          ref.read(localProvider.notifier).fail(error);
-                        }
-                      }
-                    },
-                    child: const Text('Stop session'),
-                  ),
-                ),
-              ),
-            SelectableText(
-              'Local fingerprint (compare on other device):\n${state.fingerprint}\nListening port: ${state.port}\nReceive folder: $receiveDir',
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: address,
-              decoration: const InputDecoration(
-                labelText: 'Manual numeric LAN IP:port',
-                hintText: '192.168.1.20:53317',
-              ),
-            ),
-            Wrap(
-              spacing: 8,
-              children: [
-                FilledButton(
-                  onPressed:
-                      busy
-                          ? null
-                          : () => run(() => connect(address.text.trim())),
-                  child: const Text('Connect / pair'),
-                ),
-                OutlinedButton(
-                  onPressed: busy ? null : () => run(managePeers),
-                  child: const Text('Trusted devices'),
-                ),
-              ],
-            ),
-            for (final device in state.devices.values)
-              Card(
-                child: ListTile(
-                  title: Text(device['name'] as String),
-                  subtitle: Text((device['addresses'] as List).join('\n')),
-                  trailing: TextButton(
-                    onPressed:
-                        busy || (device['addresses'] as List).isEmpty
-                            ? null
-                            : () => run(
-                              () => connect(
-                                (device['addresses'] as List).first as String,
-                              ),
-                            ),
-                    child: const Text('Connect'),
-                  ),
-                ),
-              ),
-            if (selected != null)
-              Text(
-                'Selected: ${selected!.name} · ${selected!.address}\nConnection: ${state.connections[selected!.fingerprint] ?? 'disconnected'}',
-              ),
-            if (selected != null)
-              Wrap(
-                spacing: 8,
-                children: [
-                  OutlinedButton(
-                    onPressed: busy ? null : () => run(() => viewRemote(false)),
-                    child: const Text('Request screen view'),
-                  ),
-                  OutlinedButton(
-                    onPressed: busy ? null : () => run(() => viewRemote(true)),
-                    child: const Text('Request remote control'),
-                  ),
-                ],
-              ),
-            FilledButton(
-              onPressed: busy || selected == null ? null : () => run(send),
-              child: const Text('Select and send file'),
-            ),
-            if (Platform.isAndroid)
-              OutlinedButton(
-                onPressed: () => native.invokeMethod<void>('batterySettings'),
-                child: const Text('Battery settings guidance'),
-              ),
-            if (Platform.isAndroid)
-              OutlinedButton(
-                onPressed:
-                    () => native.invokeMethod<void>('accessibilitySettings'),
-                child: const Text('Enable Accessibility input manually'),
-              ),
-            for (final entry in state.transfers.entries)
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SelectableText(
-                        '${entry.value['name'] ?? entry.key}\n${entry.value['status']}',
-                      ),
-                      if (entry.value['totalBytes'] is num)
-                        LinearProgressIndicator(
-                          value:
-                              (entry.value['totalBytes'] as num) == 0
-                                  ? 1
-                                  : ((entry.value['verifiedBytes'] ?? 0)
-                                          as num) /
-                                      (entry.value['totalBytes'] as num),
-                        ),
-                      Text(
-                        '${entry.value['verifiedBytes'] ?? 0} verified bytes · ${((entry.value['bytesPerSecond'] ?? 0) as num).toStringAsFixed(0)} B/s',
-                      ),
-                      if (entry.value['error'] != null)
-                        Text('${entry.value['error']}'),
-                      Wrap(
-                        spacing: 8,
-                        children: [
-                          TextButton(
-                            onPressed: () => run(() => cleanup(entry.key)),
-                            child: const Text('Cleanup'),
-                          ),
-                          TextButton(
-                            onPressed:
-                                () => run(
-                                  () => core.cancelTransfer(id: entry.key),
-                                ),
-                            child: const Text('Cancel'),
-                          ),
-                          if (entry.value['direction'] != 'receive')
-                            TextButton(
-                              onPressed:
-                                  () => run(() async {
-                                    if (address.text.trim().isNotEmpty) {
-                                      await core.updateTransferAddress(
-                                        id: entry.key,
-                                        address: address.text.trim(),
-                                      );
-                                    }
-                                    await core.resumeTransfer(id: entry.key);
-                                  }),
-                              child: const Text('Resume'),
-                            ),
-                          if (Platform.isAndroid &&
-                              entry.value['status'] == 'complete' &&
-                              entry.value['name'] is String &&
-                              entry.value['direction'] == 'receive')
-                            TextButton(
-                              onPressed:
-                                  () => run(
-                                    () => native.invokeMethod<void>(
-                                      'exportFile',
-                                      entry.value['name'],
-                                    ),
-                                  ),
-                              child: const Text('Export with SAF'),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-          ],
-          if (busy) const LinearProgressIndicator(),
+      bottomNavigationBar: state.ready ? NavigationBar(
+        selectedIndex: page,
+        onDestinationSelected: (value) => setState(() => page = value),
+        destinations: const [
+          NavigationDestination(icon: Icon(Icons.devices_outlined), label: 'Devices'),
+          NavigationDestination(icon: Icon(Icons.folder_outlined), label: 'Files'),
+          NavigationDestination(icon: Icon(Icons.screen_share_outlined), label: 'Remote'),
+          NavigationDestination(icon: Icon(Icons.settings_outlined), label: 'Settings'),
         ],
-      ),
+      ) : null,
+      body: SafeArea(child: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 820),
+          child: ListView(padding: const EdgeInsets.all(16), children: [
+            if (busy) const Padding(padding: EdgeInsets.only(bottom: 12),
+              child: LinearProgressIndicator()),
+            if (state.ready) Padding(padding: const EdgeInsets.only(bottom: 16),
+              child: Text(titles[page], style: Theme.of(context).textTheme.headlineSmall)),
+            if (state.error != null) panel('Something needs attention',
+              '${state.error}\n${state.errorAction ?? ''}', [], icon: Icons.error_outline),
+            for (final session in sessions) panel('Screen session is active',
+              '${session.value['role']} · ${session.value['peer']}',
+              [FilledButton.icon(
+                onPressed: () async {
+                  try { await core.stopRemote(id: session.key); } catch (error) {
+                    if (mounted) ref.read(localProvider.notifier).fail(error);
+                  }
+                },
+                icon: const Icon(Icons.stop), label: const Text('Stop session'))],
+              icon: Icons.visibility_outlined),
+            ...content,
+          ])),
+      )),
     );
   }
 }

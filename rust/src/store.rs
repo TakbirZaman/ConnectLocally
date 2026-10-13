@@ -224,8 +224,28 @@ impl Store {
     }
     pub fn history(&self) -> Result<String> {
         let c = self.db()?;
-        let mut q=c.prepare("SELECT id,direction,destination,status,error,peer FROM transfers ORDER BY updated_at DESC LIMIT 100")?;
-        let rows=q.query_map([],|r|Ok(serde_json::json!({"id":r.get::<_,String>(0)?,"direction":r.get::<_,String>(1)?,"name":r.get::<_,String>(2)?,"status":r.get::<_,String>(3)?,"error":r.get::<_,Option<String>>(4)?,"peer":r.get::<_,String>(5)?})))?;
+        let mut query = c.prepare(
+            "SELECT id,direction,destination,status,error,peer,
+             json_extract(manifest,'$.name'),json_extract(manifest,'$.size'),
+             json_extract(manifest,'$.whole_hash'),updated_at,
+             json_extract(manifest,'$.version')
+             FROM transfers ORDER BY updated_at DESC LIMIT 100",
+        )?;
+        let rows = query.query_map([], |row| {
+            Ok(serde_json::json!({
+                "id": row.get::<_, String>(0)?,
+                "direction": row.get::<_, String>(1)?,
+                "name": row.get::<_, String>(2)?,
+                "status": row.get::<_, String>(3)?,
+                "error": row.get::<_, Option<String>>(4)?,
+                "peer": row.get::<_, String>(5)?,
+                "fileName": row.get::<_, String>(6)?,
+                "fileBytes": row.get::<_, u64>(7)?,
+                "sha256": row.get::<_, String>(8)?,
+                "updatedAt": row.get::<_, i64>(9)?,
+                "manifestVersion": row.get::<_, u32>(10)?,
+            }))
+        })?;
         Ok(serde_json::to_string(
             &rows.collect::<std::result::Result<Vec<_>, _>>()?,
         )?)
