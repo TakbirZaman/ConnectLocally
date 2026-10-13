@@ -1558,8 +1558,9 @@ class _HomeState extends ConsumerState<Home> with WidgetsBindingObserver {
                           try {
                             await core.stopRemote(id: session.key);
                           } catch (error) {
-                            if (mounted)
+                            if (mounted) {
                               ref.read(localProvider.notifier).fail(error);
+                            }
                           }
                         },
                         icon: const Icon(Icons.stop),
