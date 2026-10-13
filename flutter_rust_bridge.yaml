@@ -1,0 +1,7 @@
+rust_input: crate::api
+rust_root: rust/
+dart_output: lib/src/rust
+rust_features:
+  - bridge
+web: false
+no_auto_upgrade_dependency: true

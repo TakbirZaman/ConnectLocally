@@ -1,0 +1,58 @@
+# Flutter / Dart generated
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+/build/
+doc/api/
+
+# Build outputs — distribute via GitHub Releases, never commit binaries
+build/
+dist/
+*.apk
+*.aab
+*.ipa
+*.exe
+*.msix
+*.tar.gz
+*.zip
+
+# Rust
+rust/target/
+rust_builder/*/target/
+target/
+
+# Android (supplements android/.gitignore which already covers .cxx/, keystores)
+android/.gradle/
+android/local.properties
+android/app/build/
+android/app/.cxx/
+key.properties
+**/*.keystore
+**/*.jks
+
+# Windows / Linux runners
+windows/flutter/ephemeral/
+linux/flutter/ephemeral/
+*.localconnect.part
+*.sqlite*
+*.sqlite-journal
+identity.key
+identity.der
+
+# IDE / OS
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.DS_Store
+Thumbs.db
+*.swp
+*.orig
+*.rej
+*.log
+*.pyc
+__pycache__/

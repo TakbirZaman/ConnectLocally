@@ -1,0 +1,12 @@
+    Checking enigo v0.3.0
+    Checking sha2 v0.10.9
+    Checking mdns-sd v0.13.7
+    Checking screenshots v0.8.10
+    Checking rcgen v0.13.2
+    Checking uuid v1.16.0
+    Checking keyring v3.6.3
+    Checking rand v0.8.5
+    Checking tokio-rustls v0.26.2
+    Checking tokio-util v0.7.15
+    Checking localconnect_core v0.1.0 (/workspace/scratch/4b4e038db5ad/localconnect/rust)
+    Finished `dev` profile [unoptimized] target(s) in 51.51s

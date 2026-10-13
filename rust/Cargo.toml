@@ -1,0 +1,51 @@
+[package]
+name = "localconnect_core"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.88"
+
+[lib]
+crate-type = ["cdylib", "staticlib", "rlib"]
+
+[features]
+default = ["bridge", "desktop-remote", "wayland-remote"]
+bridge = ["dep:flutter_rust_bridge"]
+desktop-remote = ["dep:enigo", "dep:screenshots"]
+wayland-remote = ["dep:ashpd", "dep:gstreamer", "dep:gstreamer-app"]
+
+[dependencies]
+anyhow = "=1.0.98"
+flutter_rust_bridge = { version = "=2.11.1", optional = true }
+tokio = { version = "=1.45.1", features = ["full"] }
+tokio-util = "=0.7.15"
+rustls = { version = "=0.23.28", default-features = false, features = ["ring", "std", "tls12"] }
+tokio-rustls = { version = "=0.26.2", default-features = false, features = ["ring", "tls12"] }
+rcgen = "=0.13.2"
+sha2 = "=0.10.9"
+hex = "=0.4.3"
+serde = { version = "=1.0.219", features = ["derive"] }
+serde_json = "=1.0.140"
+uuid = { version = "=1.16.0", features = ["v4", "serde"] }
+rusqlite = { version = "=0.35.0", features = ["bundled"] }
+mdns-sd = "=0.13.7"
+rand = "=0.8.5"
+socket2 = "=0.5.10"
+
+[target.'cfg(any(target_os = "windows", target_os = "linux"))'.dependencies]
+enigo = { version = "=0.3.0", default-features = false, features = ["x11rb"], optional = true }
+screenshots = { version = "=0.8.10", optional = true }
+
+[dev-dependencies]
+tempfile = "=3.20.0"
+x11rb = "=0.13.2"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(frb_expand)"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+keyring = { version = "=3.6.3", default-features = false, features = ["windows-native"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+ashpd = { version = "=0.11.0", default-features = false, features = ["tokio"], optional = true }
+gstreamer = { version = "=0.23.6", optional = true }
+gstreamer-app = { version = "=0.23.5", optional = true }
