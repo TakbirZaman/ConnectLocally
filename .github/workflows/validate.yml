@@ -103,3 +103,18 @@ jobs:
         with:
           name: android-arm64-debug
           path: build/app/outputs/flutter-apk/app-debug.apk*
+      - run: python3 -m unittest discover -s tests -p 'test_android_view_only.py'
+      - name: Build optional Android View Only package
+        run: python3 scripts/build_android_view_only.py
+      - name: Verify View Only permissions, ABI, signature and alignment
+        shell: bash
+        run: |
+          python3 scripts/verify_view_only_apk.py dist/LocalConnect-Android-ViewOnly.apk "$ANDROID_HOME/build-tools/35.0.0/aapt2"
+          python3 scripts/verify_android_apk.py dist/LocalConnect-Android-ViewOnly.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose dist/LocalConnect-Android-ViewOnly.apk
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -P 16 4 dist/LocalConnect-Android-ViewOnly.apk
+      - run: python3 scripts/package_checksum.py dist/LocalConnect-Android-ViewOnly.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-arm64-view-only-debug
+          path: dist/LocalConnect-Android-ViewOnly.apk*

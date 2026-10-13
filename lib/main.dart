@@ -59,6 +59,7 @@ class _HomeState extends ConsumerState<Home> with WidgetsBindingObserver {
   String? projectionTicket;
   String? controlledSession;
   bool publishingFrame = false;
+  bool androidInputSupported = false;
   int? engineGeneration;
   String? displayedPairCode;
   BuildContext? pairCodeContext;
@@ -71,13 +72,18 @@ class _HomeState extends ConsumerState<Home> with WidgetsBindingObserver {
   );
   Future<void> nativeCapabilities() async {
     final caps = await native.invokeMapMethod<String, dynamic>('capabilities');
+    if (mounted) {
+      setState(
+        () => androidInputSupported = caps?['accessibilitySupported'] == true,
+      );
+    }
     final display = await native.invokeMapMethod<String, dynamic>(
       'displayGeometry',
     );
     if (display != null) {
       await core.setNativePlatform(
         geometry: geometry(display),
-        input: caps?['accessibilityInput'] == true,
+        input: androidInputSupported && caps?['accessibilityInput'] == true,
       );
     }
   }
@@ -1398,21 +1404,26 @@ class _HomeState extends ConsumerState<Home> with WidgetsBindingObserver {
       if (Platform.isAndroid) {
         content.add(
           panel(
-            'Allow control of this phone',
-            'Android requires screen-capture consent for each session. To accept gestures, enable LocalConnect in Accessibility settings yourself.',
+            androidInputSupported
+                ? 'Allow control of this phone'
+                : 'Phone input is unavailable',
+            androidInputSupported
+                ? 'Android requires screen-capture consent for each session. To accept gestures, enable LocalConnect in Accessibility settings yourself.'
+                : 'This View Only build supports files and approved screen viewing. Accessibility-based control of this phone is not included.',
             [
-              OutlinedButton.icon(
-                onPressed:
-                    busy
-                        ? null
-                        : () => run(
-                          () => native.invokeMethod<void>(
-                            'accessibilitySettings',
+              if (androidInputSupported)
+                OutlinedButton.icon(
+                  onPressed:
+                      busy
+                          ? null
+                          : () => run(
+                            () => native.invokeMethod<void>(
+                              'accessibilitySettings',
+                            ),
                           ),
-                        ),
-                icon: const Icon(Icons.accessibility_new),
-                label: const Text('Open Accessibility settings'),
-              ),
+                  icon: const Icon(Icons.accessibility_new),
+                  label: const Text('Open Accessibility settings'),
+                ),
             ],
           ),
         );
