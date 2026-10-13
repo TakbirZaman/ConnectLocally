@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import '../lib/main.dart';
-import '../lib/providers.dart';
+import 'package:localconnect/main.dart';
+import 'package:localconnect/providers.dart';
 
 class FixtureController extends LocalController {
   FixtureController(LocalState fixture) {
@@ -17,7 +17,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(ProviderScope(
-      overrides: [localProvider.overrideWith(() => FixtureController(state))],
+      overrides: [localProvider.overrideWith((ref) => FixtureController(state))],
       child: MaterialApp(
         theme: ThemeData(useMaterial3: true),
         builder: (context, child) => MediaQuery(

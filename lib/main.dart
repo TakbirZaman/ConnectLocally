@@ -761,7 +761,7 @@ class _HomeState extends ConsumerState<Home> with WidgetsBindingObserver {
             : 'You will choose a folder for received files.'),
         ], icon: Icons.connect_without_contact));
     } else if (page == 0) {
-      if (selected != null) content.add(panel(
+      if (selected != null) { content.add(panel(
         selected!.name,
         'Selected device · ${state.connections[selected!.fingerprint] ?? 'connecting'}',
         [
@@ -770,7 +770,7 @@ class _HomeState extends ConsumerState<Home> with WidgetsBindingObserver {
           FilledButton.icon(
             onPressed: busy ? null : () => setState(() => page = 1),
             icon: const Icon(Icons.send_outlined), label: const Text('Send a file')),
-        ], icon: Icons.devices));
+        ], icon: Icons.devices)); }
       content.add(panel('Nearby devices',
         'Start LocalConnect on another device connected to the same Wi-Fi.',
         [
@@ -812,9 +812,9 @@ class _HomeState extends ConsumerState<Home> with WidgetsBindingObserver {
           label: const Text('Choose file to send'))], icon: Icons.folder_outlined));
       content.add(Padding(padding: const EdgeInsets.only(bottom: 12),
         child: Text('Transfer history', style: Theme.of(context).textTheme.titleMedium)));
-      if (state.transfers.isEmpty) content.add(panel('No transfers yet',
+      if (state.transfers.isEmpty) { content.add(panel('No transfers yet',
         'Files you send and receive will appear here with their progress.', [],
-        icon: Icons.swap_vert));
+        icon: Icons.swap_vert)); }
       for (final entry in state.transfers.entries) {
         content.add(transferCard(entry.key, entry.value));
       }
@@ -833,12 +833,12 @@ class _HomeState extends ConsumerState<Home> with WidgetsBindingObserver {
           const SizedBox(height: 12),
           const Text('You stay in control: access requires approval and can be stopped at any time.'),
         ], icon: Icons.desktop_windows_outlined));
-      if (Platform.isAndroid) content.add(panel('Allow control of this phone',
+      if (Platform.isAndroid) { content.add(panel('Allow control of this phone',
         'Android requires screen-capture consent for each session. To accept gestures, enable LocalConnect in Accessibility settings yourself.',
         [OutlinedButton.icon(
           onPressed: busy ? null : () => run(() => native.invokeMethod<void>('accessibilitySettings')),
           icon: const Icon(Icons.accessibility_new),
-          label: const Text('Open Accessibility settings'))]));
+          label: const Text('Open Accessibility settings'))])); }
     } else {
       content.add(panel('This device', 'Listening on port ${state.port}', [
         Text(name.text, style: Theme.of(context).textTheme.titleMedium),
