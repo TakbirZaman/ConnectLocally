@@ -1,6 +1,6 @@
 # LocalConnect 0.2 foundation
 
-Assumptions: both devices are on a trusted local LAN/WLAN, users can compare fingerprints independently, and receive folders use a filesystem supporting hard links. No cloud signaling, relays, STUN or TURN are used by the application. Build tools download SDKs/dependencies separately from application operation.
+Assumptions: both devices are on a trusted local LAN/WLAN, users share a fresh six-digit pairing code with the intended device, and receive folders use a filesystem supporting hard links. No cloud signaling, relays, STUN or TURN are used by the application. Build tools download SDKs/dependencies separately from application operation.
 
 “Zero-loss” means resumable transfer with cryptographic verification. It does not mean uninterrupted connections or permanent Android background execution.
 
@@ -95,8 +95,8 @@ Typed models include `Peer`, `Event`, `TransferLimits`, `TransferProgress`, `Fai
 
 ```sh
 cargo install flutter_rust_bridge_codegen --version 2.11.1 --locked
-cargo install cargo-expand --version 1.0.110 --locked
-flutter_rust_bridge_codegen generate --rust-root rust/ --rust-input crate::api --dart-output lib/src/rust --rust-features bridge --no-web --no-deps-check --no-dart-fix --no-auto-upgrade-dependency
+cargo install cargo-expand --version 1.0.113 --locked
+flutter_rust_bridge_codegen generate
 ```
 
 `lib/main.dart` initializes `RustLib`, calls generated `core` commands, and subscribes to events. File data stays in Rust, except Android SAF import/export uses native streaming to/from private staging. Screenshot decoding uses bounded PNG buffers in Flutter. This foundation does not claim universal bridge zero-copy behavior.
@@ -107,7 +107,9 @@ Discovery advertises `_localconnect._tcp.local.` with persistent certificate-der
 
 IPv4 and a separate IPv6-only listener use the same port when IPv6 is available. Discovery may suggest updated endpoints; each alternative connection must prove the previously approved certificate fingerprint before it is used. Endpoint hints never grant trust.
 
-Pairing bootstrap TLS verifies certificate-key possession but deliberately accepts an unknown self-signed certificate. Both users must explicitly compare the full DER SHA-256 fingerprint on the other device before committing pairing. All file/control/video operations require exact stored peer identity. This verifier is scoped to LocalConnect and must not be used for general HTTPS. Forgetting a peer revokes its transfers, control connection, and remote sessions.
+Pairing bootstrap TLS verifies certificate-key possession but initially accepts an unknown self-signed certificate. In Devices, choose **Show pairing code** on one device; select it or enter its IP/port on the other and enter all six digits. Codes are random, single-use, expire after 120 seconds, and allow at most three attempts per displayed code. Generating another code has a 15-second cooldown. SPAKE2 (Ed25519 group) authenticates the short code; HMAC key confirmation binds both certificate identities and the TLS exporter to this connection. The pairing protocol does not transmit the raw code. Keep the displayed code private, including during screen sharing. Closing the code invalidates unfinished approval. Both devices must use this updated build.
+
+Access is **session-only by default**, ending when the LocalConnect engine stops or the app process ends. This is an engine session, not necessarily one socket or one file transfer. Enable **Remember** on both devices for durable reconnect trust; each device controls its own persistence. Remote screen/input authorization remains separate. Advanced identity details show the certificate fingerprint, which is a cryptographic hash and needs no biometric scanner. The older explicit fingerprint API remains for compatible clients; discovery never grants trust. All file/control/video operations require an authenticated approved peer identity. This verifier is scoped to LocalConnect and must not be used for general HTTPS. Forgetting a peer revokes its transfers, control connection, and remote sessions.
 
 Identity is persistent. Linux private state directory is mode 0700 and key mode 0600. Windows identity secrets use Credential Manager through `keyring`, migrating a private plaintext key once. Android uses app-private storage plus Android Keystore AES-GCM wrapping; Rust reads a transient private plaintext key during initialization, then Kotlin seals and removes it. Crash recovery may find that private transient file and reseal it. Trust fingerprints are public metadata stored in private application SQLite; Android backups are disabled.
 

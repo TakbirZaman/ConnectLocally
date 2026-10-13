@@ -1,4 +1,4 @@
-//! Password-authenticated pairing. Codes never appear on the wire or in events.
+//! Password-authenticated pairing. The pairing protocol never transmits raw codes.
 use anyhow::{ensure, Result};
 use hmac::{Hmac, Mac};
 use rand::Rng;

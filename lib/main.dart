@@ -58,6 +58,7 @@ class _HomeState extends ConsumerState<Home> with WidgetsBindingObserver {
   int? engineGeneration;
   String? displayedPairCode;
   BuildContext? pairCodeContext;
+  Timer? pairCodeTimer;
   Geometry geometry(Map<String, dynamic> data) => Geometry(
     width: data['width'] as int,
     height: data['height'] as int,
@@ -594,12 +595,11 @@ class _HomeState extends ConsumerState<Home> with WidgetsBindingObserver {
     if (!mounted || epoch != operationEpoch) return;
     displayedPairCode = data['id'] as String;
     var remaining = (data['expires_in_seconds'] as num).toInt();
-    Timer? timer;
     final clock = Stopwatch()..start();
     final lifetime = remaining;
     StateSetter? refresh;
     try {
-      timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      pairCodeTimer = Timer.periodic(const Duration(seconds: 1), (_) {
         remaining = lifetime - clock.elapsed.inSeconds;
         final dialog = pairCodeContext;
         if (remaining <= 0 && dialog != null && dialog.mounted) {
@@ -637,7 +637,8 @@ class _HomeState extends ConsumerState<Home> with WidgetsBindingObserver {
         }),
       );
     } finally {
-      timer?.cancel();
+      pairCodeTimer?.cancel();
+      pairCodeTimer = null;
       pairCodeContext = null;
       displayedPairCode = null;
       if (mounted && epoch == operationEpoch && ref.read(localProvider).ready) {
@@ -732,7 +733,7 @@ class _HomeState extends ConsumerState<Home> with WidgetsBindingObserver {
     if (!mounted || epoch != operationEpoch) return;
     final trusted = jsonDecode(await core.trustedPeers()) as List<dynamic>;
     if (!mounted || epoch != operationEpoch) return;
-    if (trusted.any((row) => row[0] == peer.fingerprint)) {
+    if (!pairAgain && trusted.any((row) => row[0] == peer.fingerprint)) {
       await core.connect(peer: peer);
       if (!mounted || epoch != operationEpoch) return;
       selected = peer;
@@ -823,6 +824,7 @@ class _HomeState extends ConsumerState<Home> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    pairCodeTimer?.cancel();
     native.setMethodCallHandler(null);
     unawaited(subscription?.cancel());
     WidgetsBinding.instance.removeObserver(this);
@@ -1094,7 +1096,7 @@ class _HomeState extends ConsumerState<Home> with WidgetsBindingObserver {
       content.add(panel('This device', 'Listening on port ${state.port}', [
         Text(name.text, style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 12),
-        const Text('Pairing fingerprint — compare the full value on both devices.'),
+        const Text('Advanced: cryptographic device identity (no fingerprint scanner required).'),
         const SizedBox(height: 8),
         SelectableText(state.fingerprint),
         TextButton.icon(
