@@ -19,7 +19,8 @@ runtime correctness.
 
 - Install and validate the current Android app on real devices. A full current
   ARM64 APK build, signing/package checks and ELF alignment checks now passed.
-- Full Windows MSVC/Flutter build and Windows runtime validation.
+- Windows runtime validation: the full Windows release build now passed in
+  repository CI, alongside Rust/Flutter tests and ZIP packaging.
 - Interactive Linux real-desktop validation (the current debug bundle builds).
 - Real GNOME/KDE Wayland portal/PipeWire consent, input and cleanup tests.
 - Android projection/accessibility consent, rotation, revocation, foreground
@@ -27,8 +28,9 @@ runtime correctness.
 - Physical LAN/mDNS/interface changes, Wi-Fi interruption, process force-kill,
   cross-platform memory/throughput measurements and disk-full/power-loss tests.
   An actual >4 GiB loopback transfer and process RSS check have now passed.
-- Execute the supplied CI workflow and configure stable development/release
-  signing keys. No private signing key or external deployment is included.
+- Pass the latest CI after the X11 harness/reset and duplicate-trigger fixes.
+  Windows/Linux/Android jobs passed on e910bfda in PR run 38398824783. Configure stable development/release signing
+  keys; no private key or public deployment is included.
 
 ## Explicit product limitations
 

@@ -9,7 +9,7 @@ with tempfile.TemporaryDirectory(prefix="localconnect-x11-") as directory:
     number=random.randrange(100,1000)
     display=f"127.0.0.1:{number}"
     subprocess.run(["xauth","-f",str(auth),"add",display,"MIT-MAGIC-COOKIE-1",os.urandom(16).hex()],check=True)
-    server=subprocess.Popen(["Xvfb",f":{number}","-screen","0","800x600x24","-listen","tcp","-nolisten","unix","-auth",str(auth)],stdout=subprocess.DEVNULL,stderr=subprocess.PIPE)
+    server=subprocess.Popen(["Xvfb",f":{number}","-screen","0","800x600x24","-listen","tcp","-nolisten","unix","-noreset","-auth",str(auth)],stdout=subprocess.DEVNULL,stderr=subprocess.PIPE)
     try:
         time.sleep(1)
         if server.poll() is not None:raise RuntimeError(server.stderr.read().decode())

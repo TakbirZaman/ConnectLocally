@@ -166,7 +166,7 @@ flutter analyze
 flutter test --dart-define=LOCALCONNECT_NATIVE_LIB=/absolute/project/rust/target/debug/liblocalconnect_core.so
 ```
 
-The included CI workflow is proposed automation; a workflow file is not evidence that CI has run. See VALIDATION.md for recorded runs and acceptance checks.
+Windows/Linux/Android repository CI builds and packaging passed in PR run 38398824783. A duplicate push run exposed an X11 test-server reset race, which is being fixed before merge. See VALIDATION.md. See that report for recorded runs and remaining acceptance checks.
 
 | Capability | Windows | Linux X11 | Linux Wayland | Android |
 |---|---|---|---|---|
@@ -174,7 +174,7 @@ The included CI workflow is proposed automation; a workflow file is not evidence
 | View another supported source | Implemented | Implemented | Implemented | Implemented |
 | Capture own screen | GDI/software, primary monitor | Software, primary/single monitor | Portal + PipeWire, one selected monitor | Fresh MediaProjection consent |
 | Inject input | Enigo; ordinary desktop only | Enigo/X11 | RemoteDesktop portal grants required | Accessibility taps/short swipes/focused text |
-| OS/runtime verification | Rust GNU cross-check only | Isolated Xvfb streaming/input tested | Compiles; real compositor untested | Full ARM64 APK build verified; device behavior untested |
+| OS/runtime verification | Full Windows release CI build; device input/capture untested | Isolated Xvfb streaming/input tested | Compiles; real compositor untested | Full ARM64 APK build verified; device behavior untested |
 
 PNG streaming targets 4 fps at at most 1920×1080; it is a responsive-control foundation, not a high-frame-rate codec implementation. Windows secure desktops/UAC/elevated applications, multi-monitor switching, arbitrary Android key injection, silent Accessibility enablement, reused projection tokens and permanent background execution are unsupported. Wayland backend/plugin limitations are reported during permission/setup; no XWayland fallback is advertised.
 
