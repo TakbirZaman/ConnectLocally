@@ -451,7 +451,10 @@ mod tests {
         }
         let error = receiver.accept(0, &bytes).unwrap_err();
         assert_eq!(
-            error.downcast_ref::<std::io::Error>().unwrap().raw_os_error(),
+            error
+                .downcast_ref::<std::io::Error>()
+                .unwrap()
+                .raw_os_error(),
             Some(28)
         );
         assert!(store.indexes(&m.id).unwrap().is_empty());
