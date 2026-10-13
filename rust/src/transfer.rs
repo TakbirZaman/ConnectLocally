@@ -494,13 +494,8 @@ mod tests {
         std::fs::set_permissions(&receiver.partial, std::fs::Permissions::from_mode(0o600))
             .unwrap();
         let error = result.expect_err("run this check as an unprivileged user");
-        assert_eq!(
-            error
-                .downcast_ref::<std::io::Error>()
-                .unwrap()
-                .kind(),
-            std::io::ErrorKind::PermissionDenied
-        );
+        let io_error = error.downcast_ref::<std::io::Error>().unwrap();
+        assert_eq!(io_error.kind(), std::io::ErrorKind::PermissionDenied);
         assert!(store.indexes(&m.id).unwrap().is_empty());
         assert!(!receiver.destination.exists());
         assert_eq!(std::fs::read(&src).unwrap(), bytes);
