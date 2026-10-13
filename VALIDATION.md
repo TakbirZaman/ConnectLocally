@@ -89,7 +89,7 @@ contain the latest Android projection/accessibility UI and services. Native-only
 APK refresh is invalid when Kotlin, manifest, Dart or bridge contracts change.
 The new full Gradle/Flutter/NDK build below supersedes that historical package.
 It is a debug test build, not a certified release.
-The included CI workflow has not been executed in an external repository.
+Repository CI results are now recorded in the section below.
 
 ## Required real-device acceptance checks
 
@@ -159,3 +159,23 @@ missing manually restored NDK package metadata, and the packaging/alignment
 issues above. They were corrected and the final complete build/inspection passed.
 No Android device installation, projection consent, accessibility behavior,
 SAF/OEM/lifecycle tests, or production signing is claimed.
+
+## Repository CI inspected on 2026-10-13
+
+Run: https://github.com/TakbirZaman/ConnectLocally/actions/runs/38384325209
+Commit: `bb67ddf7e06f75a9dc266e336701aacd062001a9` (develop).
+
+- Windows 2022 runner: Rust tests, Flutter analysis/tests, **full Windows release
+  build and ZIP packaging passed**. Artifact `windows-x64` was uploaded. This
+  supersedes the earlier cross-check-only Windows build status; remote input,
+  capture/DPI, approval and Stop still need real Windows interaction testing.
+- Ubuntu 24.04 runner: lint/tests, isolated X11 capture/input cleanup, actual
+  >4 GiB/RSS acceptance, Flutter analysis/tests, **Linux release build and bundle
+  packaging passed**. Artifact `linux-x64` was uploaded.
+- Android failed at SDK setup: `sdkmanager: command not found`, exit 127.
+  The app build did not run in this CI attempt.
+
+The proposed CI fix installs the SDK tools using a pinned setup-android action,
+accepts licenses through that action, installs both plugin/app SDK packages and
+adds APK ABI/ELF/signature/ZIP checks. A new run must pass before marking Android
+CI complete. Historical local Android build evidence remains valid separately.

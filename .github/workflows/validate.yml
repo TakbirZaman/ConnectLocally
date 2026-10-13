@@ -62,11 +62,22 @@ jobs:
           flutter-version: 3.29.3
           cache: true
       - run: rustup toolchain install 1.88.0
-      - run: yes | sdkmanager --licenses > /dev/null
-      - run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'ndk;27.0.12077973' 'cmake;3.22.1'
+      - name: Set up Android SDK and accept licenses
+        uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+        with:
+          cmdline-tools-version: '12266719'
+          accept-android-sdk-licenses: 'yes'
+          log-accepted-android-sdk-licenses: 'false'
+          packages: 'platform-tools platforms;android-35 platforms;android-34 build-tools;35.0.0 build-tools;34.0.0 ndk;27.0.12077973 cmake;3.22.1'
       - run: python3 scripts/install_android.py
       - run: flutter pub get --enforce-lockfile
       - run: flutter build apk --debug --target-platform android-arm64
+      - name: Verify APK ABI, ELF alignment, signature and ZIP alignment
+        shell: bash
+        run: |
+          python3 scripts/verify_android_apk.py build/app/outputs/flutter-apk/app-debug.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose build/app/outputs/flutter-apk/app-debug.apk
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -P 16 4 build/app/outputs/flutter-apk/app-debug.apk
       - uses: actions/upload-artifact@v4
         with:
           name: android-arm64-debug
