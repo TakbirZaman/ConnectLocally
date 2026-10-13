@@ -14,6 +14,7 @@ pub mod identity;
 #[cfg(feature = "bridge")]
 mod lifecycle;
 pub mod protocol;
+pub mod pairing;
 pub mod remote;
 pub mod remote_engine;
 pub mod remote_session;

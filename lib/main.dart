@@ -56,6 +56,8 @@ class _HomeState extends ConsumerState<Home> with WidgetsBindingObserver {
   String? controlledSession;
   bool publishingFrame = false;
   int? engineGeneration;
+  String? displayedPairCode;
+  BuildContext? pairCodeContext;
   Geometry geometry(Map<String, dynamic> data) => Geometry(
     width: data['width'] as int,
     height: data['height'] as int,
@@ -231,13 +233,34 @@ class _HomeState extends ConsumerState<Home> with WidgetsBindingObserver {
       if (Platform.isAndroid) await nativeCapabilities();
       if (!mounted || epoch != operationEpoch) return;
       subscription = core.events().listen((event) {
+        if (!mounted || epoch != operationEpoch) return;
         ref.read(localProvider.notifier).event(event);
-        if (event.kind == 'pair_request') {
+        if (event.kind == 'paired') {
+          final data = jsonDecode(event.payload) as Map<String, dynamic>;
+          if (data['address'] is String) {
+            setState(() => selected = Peer(
+              fingerprint: data['fingerprint'] as String,
+              name: data['name'] as String,
+              address: data['address'] as String,
+            ));
+          }
+          final dialog = pairCodeContext;
+          if (data['codeWindow'] == displayedPairCode && dialog != null && dialog.mounted) {
+            Navigator.of(dialog).pop();
+          }
+        }
+        if (event.kind == 'pair_request' && displayedPairCode != null) {
+          final request = jsonDecode(event.payload) as Map<String, dynamic>;
+          unawaited(core.approvePair(fingerprint: request['fingerprint'] as String, allow: false));
+        } else if (event.kind == 'pair_request') {
           unawaited(
             approveIncoming(jsonDecode(event.payload) as Map<String, dynamic>),
           );
         }
-        if (event.kind == 'remote_request') {
+        if (event.kind == 'remote_request' && displayedPairCode != null) {
+          final request = jsonDecode(event.payload) as Map<String, dynamic>;
+          unawaited(core.approveRemote(request: request['request'] as String, allow: false));
+        } else if (event.kind == 'remote_request') {
           unawaited(
             approveRemote(jsonDecode(event.payload) as Map<String, dynamic>),
           );
@@ -486,9 +509,13 @@ class _HomeState extends ConsumerState<Home> with WidgetsBindingObserver {
     final id = request['request'] as String;
     if (!pairingDialogs.add(id)) return;
     try {
+      final peers = jsonDecode(await core.trustedPeers()) as List<dynamic>;
+      if (!mounted || epoch != operationEpoch) return;
+      final names = peers.where((row) => row[0] == request['peer']).toList();
+      final peerName = names.isEmpty ? 'Paired device' : names.first[1] as String;
       final yes = await confirm(
         'Remote session request',
-        'Paired peer:\n${request['peer']}\n\n${request['input'] == true ? 'Allow this device to view your primary display and inject keyboard/mouse input?' : 'Allow this device to view your primary display?'}\n\nAn active-session indicator and Stop action remain available. Approval expires after one hour; disconnect requires a new approval.',
+        'Paired device: $peerName\n\n${request['input'] == true ? (Platform.isAndroid ? 'Allow this device to view your phone and use supported taps, swipes and text actions?' : 'Allow this device to view your display and use keyboard/mouse input?') : 'Allow this device to view your screen?'}\n\nAn active-session indicator and Stop action remain available. Approval expires after one hour; disconnect requires a new approval.',
         approveLabel:
             request['input'] == true ? 'Allow control' : 'Allow screen view',
       );
@@ -538,7 +565,166 @@ class _HomeState extends ConsumerState<Home> with WidgetsBindingObserver {
     );
   }
 
-  Future<void> connect(String addr) async {
+  Future<void> displayCode() async {
+    final epoch = operationEpoch;
+    var remember = false;
+    final choice = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(builder: (ctx, update) => AlertDialog(
+        title: const Text('Connect with a one-time code'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Text('A code will appear on this device. Enter it on the other device to connect.'),
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            value: remember,
+            onChanged: (value) => update(() => remember = value ?? false),
+            title: const Text('Remember the connecting device'),
+            subtitle: const Text('Off: access ends when LocalConnect stops. Enable on both devices to reconnect later.'),
+          ),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Generate code')),
+        ],
+      )),
+    );
+    if (choice != true || !mounted || epoch != operationEpoch) return;
+    final data = jsonDecode(await core.beginPairingCode(remember: remember)) as Map<String, dynamic>;
+    if (!mounted || epoch != operationEpoch) return;
+    displayedPairCode = data['id'] as String;
+    var remaining = (data['expires_in_seconds'] as num).toInt();
+    Timer? timer;
+    final clock = Stopwatch()..start();
+    final lifetime = remaining;
+    StateSetter? refresh;
+    try {
+      timer = Timer.periodic(const Duration(seconds: 1), (_) {
+        remaining = lifetime - clock.elapsed.inSeconds;
+        final dialog = pairCodeContext;
+        if (remaining <= 0 && dialog != null && dialog.mounted) {
+          Navigator.of(dialog).pop();
+        } else if (dialog != null && dialog.mounted) {
+          refresh?.call(() {});
+        }
+      });
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => StatefulBuilder(builder: (ctx, update) {
+          pairCodeContext = ctx;
+          refresh = update;
+          return AlertDialog(
+            title: const Text('Enter this code on the other device'),
+            content: SingleChildScrollView(child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                FittedBox(fit: BoxFit.scaleDown, child: Text(data['code'] as String,
+                  maxLines: 1, softWrap: false,
+                  style: const TextStyle(fontSize: 40, letterSpacing: 6, fontWeight: FontWeight.bold))),
+                const SizedBox(height: 16),
+                Text('Expires in ${remaining}s · single use · 3 attempts'),
+                const SizedBox(height: 12),
+                Text(remember ? 'The connecting device will be remembered.' : 'Session only: access ends when LocalConnect stops.'),
+                const SizedBox(height: 12),
+                const Text('On the other device, select this device and enter the code. Remote access still needs separate approval.'),
+              ],
+            )),
+            actions: [
+              TextButton(onPressed: () => stop(), child: const Text('Stop all')),
+              FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close code')),
+            ],
+          );
+        }),
+      );
+    } finally {
+      timer?.cancel();
+      pairCodeContext = null;
+      displayedPairCode = null;
+      if (mounted && epoch == operationEpoch && ref.read(localProvider).ready) {
+        await core.cancelPairingCode();
+      }
+    }
+  }
+
+  Future<Peer?> enterCode(Peer peer) async {
+    final epoch = operationEpoch;
+    final code = TextEditingController();
+    var remember = false;
+    var submitting = false;
+    String? error;
+    try {
+      return await showDialog<Peer>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => StatefulBuilder(builder: (ctx, update) {
+          Future<void> submit() async {
+            if (submitting) return;
+            if (!RegExp(r'^[0-9]{6}$').hasMatch(code.text)) {
+              update(() => error = 'Enter all six digits.');
+              return;
+            }
+            update(() { submitting = true; error = null; });
+            try {
+              final paired = await core.pairWithCode(
+                address: peer.address, code: code.text, remember: remember);
+              if (ctx.mounted && mounted && epoch == operationEpoch) {
+                Navigator.pop(ctx, paired);
+              }
+            } catch (failure) {
+              if (ctx.mounted) update(() => error =
+                'Could not pair. Check the code, generate a fresh one if expired, and use the latest app on both devices.\n$failure');
+            } finally {
+              if (ctx.mounted) update(() => submitting = false);
+            }
+          }
+          return AlertDialog(
+            title: Text('Connect to ${peer.name}'),
+            content: SingleChildScrollView(child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('On the other device, choose Show pairing code. Enter that code here. Device names alone are not proof of identity.'),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: code,
+                  enabled: !submitting,
+                  autofocus: true,
+                  keyboardType: TextInputType.number,
+                  enableSuggestions: false,
+                  autocorrect: false,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  maxLength: 6,
+                  decoration: const InputDecoration(labelText: 'One-time code', hintText: '123456'),
+                  onSubmitted: (_) => submit(),
+                ),
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: remember,
+                  onChanged: submitting ? null : (value) => update(() => remember = value ?? false),
+                  title: Text('Remember ${peer.name}'),
+                  subtitle: const Text('Off: session only. Enable on both devices to reconnect later.'),
+                ),
+                if (error != null) Text(error!,
+                  style: TextStyle(color: Theme.of(ctx).colorScheme.error)),
+                if (submitting) const LinearProgressIndicator(),
+              ],
+            )),
+            actions: [
+              TextButton(onPressed: () => stop(), child: const Text('Stop all')),
+              TextButton(onPressed: submitting ? null : () => Navigator.pop(ctx),
+                child: const Text('Cancel')),
+              FilledButton(onPressed: submitting ? null : submit,
+                child: const Text('Connect')),
+            ],
+          );
+        }),
+      );
+    } finally {
+      code.clear();
+      code.dispose();
+    }
+  }
+
+  Future<void> connect(String addr, {bool pairAgain = false}) async {
     final epoch = operationEpoch;
     final peer = await core.probe(address: addr);
     if (!mounted || epoch != operationEpoch) return;
@@ -549,16 +735,8 @@ class _HomeState extends ConsumerState<Home> with WidgetsBindingObserver {
       if (!mounted || epoch != operationEpoch) return;
       selected = peer;
     } else {
-      final yes = await confirm(
-        'Pair with ${peer.name}?',
-        'Compare both fingerprints on the two devices. Names alone do not identify a device.\n\nTheir fingerprint:\n${peer.fingerprint}\n\nYour fingerprint:\n${ref.read(localProvider).fingerprint}\n\nAfter confirming here, approve the pairing request on the other device.',
-      );
-      if (!yes || !mounted || epoch != operationEpoch) return;
-      final paired = await core.pair(
-        address: addr,
-        fingerprint: peer.fingerprint,
-      );
-      if (!mounted || epoch != operationEpoch) return;
+      final paired = await enterCode(peer);
+      if (paired == null || !mounted || epoch != operationEpoch) return;
       selected = paired;
     }
     if (mounted) setState(() {});
@@ -758,8 +936,10 @@ class _HomeState extends ConsumerState<Home> with WidgetsBindingObserver {
     final total = (transfer['totalBytes'] as num?) ?? 0;
     final verified = (transfer['verifiedBytes'] as num?) ?? 0;
     final speed = (transfer['bytesPerSecond'] as num?) ?? 0;
+    final rawName = '${transfer['name'] ?? 'File transfer'}';
+    final fileName = rawName.replaceAll('\\', '/').split('/').last;
     return panel(
-      '${transfer['name'] ?? 'File transfer'}',
+      fileName,
       '${receiving ? 'Receiving' : 'Sending'} · ${status.replaceAll('_', ' ')}',
       [
         if (total > 0) ...[
