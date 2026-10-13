@@ -1,0 +1,68 @@
+name: Android release candidate
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  android:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.29.3
+          cache: true
+      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+        with:
+          cmdline-tools-version: '12266719'
+          accept-android-sdk-licenses: 'yes'
+          log-accepted-android-sdk-licenses: 'false'
+          packages: 'platform-tools platforms;android-35 platforms;android-34 build-tools;35.0.0 build-tools;34.0.0 ndk;27.0.12077973 cmake;3.22.1'
+      - run: rustup toolchain install 1.88.0
+      - run: python3 scripts/install_android.py
+      - run: flutter pub get --enforce-lockfile
+      - run: flutter analyze
+      - run: flutter test
+      - run: cargo test --locked --manifest-path rust/Cargo.toml --no-default-features --features bridge
+      - name: Build and verify signed candidate
+        shell: bash
+        env:
+          LOCALCONNECT_KEYSTORE_BASE64: ${{ secrets.LOCALCONNECT_KEYSTORE_BASE64 }}
+          LOCALCONNECT_STORE_PASSWORD: ${{ secrets.LOCALCONNECT_STORE_PASSWORD }}
+          LOCALCONNECT_KEY_ALIAS: ${{ secrets.LOCALCONNECT_KEY_ALIAS }}
+          LOCALCONNECT_KEY_PASSWORD: ${{ secrets.LOCALCONNECT_KEY_PASSWORD }}
+        run: |
+          export LOCALCONNECT_KEYSTORE="$RUNNER_TEMP/localconnect-release.jks"
+          trap 'rm -f "$LOCALCONNECT_KEYSTORE"' EXIT
+          python3 - <<'PY'
+          import base64, os
+          required = ['LOCALCONNECT_KEYSTORE_BASE64', 'LOCALCONNECT_STORE_PASSWORD', 'LOCALCONNECT_KEY_ALIAS', 'LOCALCONNECT_KEY_PASSWORD']
+          missing = [key for key in required if not os.environ.get(key)]
+          if missing:
+              raise SystemExit('Configure repository Actions secrets: ' + ', '.join(missing))
+          data = base64.b64decode(os.environ['LOCALCONNECT_KEYSTORE_BASE64'], validate=True)
+          if not data:
+              raise SystemExit('Signing keystore is empty')
+          fd = os.open(os.environ['LOCALCONNECT_KEYSTORE'], os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+          with os.fdopen(fd, 'wb') as file:
+              file.write(data)
+          PY
+          unset LOCALCONNECT_KEYSTORE_BASE64
+          flutter build apk --release --target-platform android-arm64 --no-pub
+          python3 scripts/verify_android_apk.py build/app/outputs/flutter-apk/app-release.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs build/app/outputs/flutter-apk/app-release.apk
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -P 16 4 build/app/outputs/flutter-apk/app-release.apk
+      - name: Remove temporary signing file
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/localconnect-release.jks"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-arm64-release-candidate-${{ github.sha }}
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
