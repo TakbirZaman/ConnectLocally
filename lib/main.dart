@@ -468,7 +468,7 @@ class _HomeState extends ConsumerState<Home> with WidgetsBindingObserver {
     try {
       final yes = await confirm(
         'Approve ${request['name']}?',
-        'Compare this full SHA-256 fingerprint with the LOCAL fingerprint shown on the requesting device, in person or over an independent trusted channel.\n\n$fp\n\nThis grants file transfer only.',
+        'Compare both fingerprints with the requesting device. Names alone do not identify a device.\n\nTheir fingerprint:\n$fp\n\nYour fingerprint:\n${ref.read(localProvider).fingerprint}\n\nPairing allows file transfer. Remote access requires separate approval.',
       );
       if (!mounted || epoch != operationEpoch) return;
       await core.approvePair(fingerprint: fp, allow: yes);
@@ -551,7 +551,7 @@ class _HomeState extends ConsumerState<Home> with WidgetsBindingObserver {
     } else {
       final yes = await confirm(
         'Pair with ${peer.name}?',
-        'Compare this full fingerprint with the LOCAL fingerprint shown on that device. Discovery names are untrusted.\n\n${peer.fingerprint}\n\nThen approve the requesting fingerprint on that device.',
+        'Compare both fingerprints on the two devices. Names alone do not identify a device.\n\nTheir fingerprint:\n${peer.fingerprint}\n\nYour fingerprint:\n${ref.read(localProvider).fingerprint}\n\nAfter confirming here, approve the pairing request on the other device.',
       );
       if (!yes || !mounted || epoch != operationEpoch) return;
       final paired = await core.pair(
@@ -603,7 +603,7 @@ class _HomeState extends ConsumerState<Home> with WidgetsBindingObserver {
     if (mounted) {
       Navigator.of(context).popUntil((route) => route.isFirst);
       ref.read(localProvider.notifier).stopped();
-      setState(() => busy = false);
+      setState(() { busy = false; page = 0; });
     }
   }
 
