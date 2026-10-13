@@ -472,6 +472,46 @@ mod tests {
         assert_eq!(std::fs::read(&recovered.destination).unwrap(), bytes);
         assert_eq!(store.transfer_status(&m.id).unwrap(), "complete");
     }
+    #[cfg(target_os = "linux")]
+    #[test]
+    #[ignore = "requires unprivileged filesystem user; run explicitly in Linux CI"]
+    fn permission_denied_write_preserves_resume_state() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let d = tempfile::tempdir().unwrap();
+        let src = d.path().join("source.bin");
+        let bytes = b"permission recovery";
+        std::fs::write(&src, bytes).unwrap();
+        let m = manifest(&src, uuid::Uuid::new_v4().to_string()).unwrap();
+        let db_path = d.path().join("db");
+        let store = Store::open(&db_path).unwrap();
+        let out = d.path().join("out");
+        let receiver = Receiver::prepare(&out, m.clone(), store.clone(), "peer").unwrap();
+        std::fs::set_permissions(&receiver.partial, std::fs::Permissions::from_mode(0o400))
+            .unwrap();
+        let result = receiver.accept(0, bytes);
+        // Restore before assertions so even a privileged/misconfigured runner cleans up.
+        std::fs::set_permissions(&receiver.partial, std::fs::Permissions::from_mode(0o600))
+            .unwrap();
+        let error = result.expect_err("run this check as an unprivileged user");
+        let io_error = error.downcast_ref::<std::io::Error>().unwrap();
+        assert_eq!(io_error.kind(), std::io::ErrorKind::PermissionDenied);
+        assert!(store.indexes(&m.id).unwrap().is_empty());
+        assert!(!receiver.destination.exists());
+        assert_eq!(std::fs::read(&src).unwrap(), bytes);
+        drop(receiver);
+        drop(store);
+        let store = Store::open(&db_path).unwrap();
+        let recovered = Receiver::prepare(&out, m.clone(), store.clone(), "peer").unwrap();
+        assert_eq!(recovered.reconcile().unwrap(), vec![0]);
+        recovered.accept(0, bytes).unwrap();
+        recovered.finish().unwrap();
+        assert_eq!(std::fs::read(&recovered.destination).unwrap(), bytes);
+        assert_eq!(store.transfer_status(&m.id).unwrap(), "complete");
+        std::fs::remove_file(&src).unwrap();
+        assert!(source_chunk(&src, &m, 0).is_err());
+        assert_eq!(std::fs::read(&recovered.destination).unwrap(), bytes);
+    }
     #[test]
     fn source_mutation() {
         let d = tempfile::tempdir().unwrap();

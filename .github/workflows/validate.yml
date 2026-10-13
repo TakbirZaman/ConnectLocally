@@ -22,6 +22,8 @@ jobs:
       - run: cargo fmt --manifest-path rust/Cargo.toml --check
       - run: cargo clippy --locked --manifest-path rust/Cargo.toml --all-targets -- -D warnings
       - run: cargo test --locked --manifest-path rust/Cargo.toml
+      - name: Permission-denied write and recovery (unprivileged runner)
+        run: cargo test --locked --manifest-path rust/Cargo.toml --lib -- --ignored --exact transfer::tests::permission_denied_write_preserves_resume_state
       - name: Disk-full recovery on isolated disposable tmpfs
         shell: bash
         run: |
