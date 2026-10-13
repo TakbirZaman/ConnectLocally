@@ -57,6 +57,7 @@ jobs:
           python3 scripts/verify_android_apk.py build/app/outputs/flutter-apk/app-release.apk
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs build/app/outputs/flutter-apk/app-release.apk
           "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -P 16 4 build/app/outputs/flutter-apk/app-release.apk
+          python3 scripts/package_checksum.py build/app/outputs/flutter-apk/app-release.apk
       - name: Remove temporary signing file
         if: always()
         shell: bash
@@ -64,5 +65,5 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: android-arm64-release-candidate-${{ github.sha }}
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: build/app/outputs/flutter-apk/app-release.apk*
           if-no-files-found: error

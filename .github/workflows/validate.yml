@@ -30,11 +30,13 @@ jobs:
       - run: flutter analyze
       - run: flutter test --dart-define=LOCALCONNECT_NATIVE_LIB=${{ github.workspace }}/rust/target/debug/liblocalconnect_core.so
       - run: flutter build linux --release
+      - run: python3 -m unittest discover -s tests -p 'test_package_checksum.py'
       - run: python3 scripts/package.py --linux
+      - run: python3 scripts/package_checksum.py dist/LocalConnect-Linux-x64.tar.gz
       - uses: actions/upload-artifact@v4
         with:
           name: linux-x64
-          path: dist/LocalConnect-Linux-x64.tar.gz
+          path: dist/LocalConnect-Linux-x64.tar.gz*
   windows:
     runs-on: windows-2022
     steps:
@@ -49,11 +51,13 @@ jobs:
       - run: flutter analyze
       - run: flutter test
       - run: flutter build windows --release
+      - run: python -m unittest discover -s tests -p 'test_package_checksum.py'
       - run: python scripts/package.py --windows
+      - run: python scripts/package_checksum.py dist/LocalConnect-Windows-x64.zip
       - uses: actions/upload-artifact@v4
         with:
           name: windows-x64
-          path: dist/LocalConnect-Windows-x64.zip
+          path: dist/LocalConnect-Windows-x64.zip*
   android:
     runs-on: ubuntu-24.04
     steps:
@@ -83,7 +87,8 @@ jobs:
           python3 scripts/verify_android_apk.py build/app/outputs/flutter-apk/app-debug.apk
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose build/app/outputs/flutter-apk/app-debug.apk
           "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -P 16 4 build/app/outputs/flutter-apk/app-debug.apk
+      - run: python3 scripts/package_checksum.py build/app/outputs/flutter-apk/app-debug.apk
       - uses: actions/upload-artifact@v4
         with:
           name: android-arm64-debug
-          path: build/app/outputs/flutter-apk/app-debug.apk
+          path: build/app/outputs/flutter-apk/app-debug.apk*
