@@ -70,7 +70,7 @@ jobs:
         uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
         with:
           cmdline-tools-version: '12266719'
-          accept-android-sdk-licenses: 'yes'
+          accept-android-sdk-licenses: 'true'
           log-accepted-android-sdk-licenses: 'false'
           packages: 'platform-tools platforms;android-35 platforms;android-34 build-tools;35.0.0 build-tools;34.0.0 ndk;27.0.12077973 cmake;3.22.1'
       - run: python3 scripts/install_android.py
