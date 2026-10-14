@@ -26,10 +26,19 @@ application ID. The output `.apk.release.json` ties the candidate to its source
 commit, package version, APK hash and certificate fingerprint. The metadata is
 not itself a signed attestation or Google certification.
 
-Run the release workflow only from reviewed trusted source. It currently
-expects `com.example.localconnect` to preserve existing test installations.
-Choose the final product application ID before the first paid release; changing
-it creates a separate Android app and requires a tested migration plan.
+Run the release workflow only from reviewed trusted source. The application ID
+is `io.github.takbirzaman.localconnect`. The former `com.example.localconnect`
+APK is a separate installation. Read [Android migration](ANDROID_MIGRATION.md)
+before switching. Kotlin/JNI keep their internal namespace to preserve native
+symbol linkage; the public application ID does not need to match that namespace.
+
+## Product direction
+
+The initial product is a free beta. Optional paid setup/support is planned;
+there is no active checkout, price, subscription, paid feature gate or support SLA.
+Before selling support, define its scope, pricing, payment method and refund terms.
+This direction does not grant a new source-code license or promise free service
+forever. Dependency/license review remains required before commercial distribution.
 
 ## Protect source distributions
 
@@ -41,11 +50,10 @@ Never place real signing keys or runtime user data in the repository.
 
 ## Owner decisions still required
 
-1. Release identity: final Android application ID, stable signing key and backup;
+1. Release identity: stable signing key and backup;
    Windows publisher signing certificate if distributing a signed Windows app.
-2. Commercial model: paid downloads, paid support, or a licensed edition; choose
-   price, license scope, upgrade entitlement and refund/support terms before
-   implementing purchases. No billing or entitlement enforcement currently exists.
+2. Optional paid setup/support: choose price, service scope and refund/support
+   terms before accepting payments. No billing or entitlement enforcement exists.
 3. Dependency distribution review: retain Flutter and Rust third-party notices
    and review the actual shipped dependencies before choosing your product license.
 4. Distribution: direct downloads or app stores; publish stable signed artifacts
