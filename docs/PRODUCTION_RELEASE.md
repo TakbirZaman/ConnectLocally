@@ -69,8 +69,12 @@ and customer terms have been completed.
 - Document current PNG streaming (up to 4 fps), single-display scope, Android
   foreground restrictions and platform capability limits in sales material.
 - Google Play Protect review is separate from build validation and store
-  publication. The earlier APK upload timed out; receipt is unconfirmed and no
-  appeal submission or Google approval is established.
+  publication. On 2026-10-14, the APK with SHA-256
+  `1e2951955f7bcf8ca695d43077366efbda99d0e799bd416a245a4bc227bdf81d`
+  was uploaded to VirusTotal (0/67 vendors flagged it at that time). Google
+  confirmed appeal submission and requested email verification by the owner.
+  Neither the scan nor the submission establishes Google approval. This review
+  concerns the existing debug-signed test APK, not a future production binary.
 - Test release verification itself against a real signed APK with SDK tools;
   parser fixture tests do not establish that end-to-end signing has run.
 
