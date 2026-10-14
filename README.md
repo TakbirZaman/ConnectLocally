@@ -2,7 +2,10 @@
 
 Commercial release preparation: read [Production release](docs/PRODUCTION_RELEASE.md)
 for publisher verification, signing setup, and the remaining owner decisions.
-Current downloadable debug APKs are test builds.
+Current downloadable debug APKs are test builds. The product direction is a free
+beta with optional paid setup/support planned, not yet offered for purchase.
+New Android builds use `io.github.takbirzaman.localconnect`; see
+[Android migration](docs/ANDROID_MIGRATION.md) before switching from an older APK.
 
 Assumptions: both devices are on a trusted local LAN/WLAN, users share a fresh six-digit pairing code with the intended device, and receive folders use a filesystem supporting hard links. No cloud signaling, relays, STUN or TURN are used by the application. Build tools download SDKs/dependencies separately from application operation.
 

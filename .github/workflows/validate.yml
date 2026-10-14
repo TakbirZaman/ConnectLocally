@@ -95,6 +95,8 @@ jobs:
       - name: Verify APK ABI, ELF alignment, signature and ZIP alignment
         shell: bash
         run: |
+          python3 -m unittest discover -s tests -p 'test_android_identity.py'
+          python3 scripts/verify_android_identity.py build/app/outputs/flutter-apk/app-debug.apk "$ANDROID_HOME/build-tools/35.0.0/aapt2"
           python3 scripts/verify_android_apk.py build/app/outputs/flutter-apk/app-debug.apk
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose build/app/outputs/flutter-apk/app-debug.apk
           "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -P 16 4 build/app/outputs/flutter-apk/app-debug.apk
@@ -109,6 +111,7 @@ jobs:
       - name: Verify View Only permissions, ABI, signature and alignment
         shell: bash
         run: |
+          python3 scripts/verify_android_identity.py dist/LocalConnect-Android-ViewOnly.apk "$ANDROID_HOME/build-tools/35.0.0/aapt2"
           python3 scripts/verify_view_only_apk.py dist/LocalConnect-Android-ViewOnly.apk "$ANDROID_HOME/build-tools/35.0.0/aapt2"
           python3 scripts/verify_android_apk.py dist/LocalConnect-Android-ViewOnly.apk
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose dist/LocalConnect-Android-ViewOnly.apk

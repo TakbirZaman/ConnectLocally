@@ -65,7 +65,7 @@ jobs:
             --apksigner "$ANDROID_HOME/build-tools/35.0.0/apksigner" \
             --aapt2 "$ANDROID_HOME/build-tools/35.0.0/aapt2" \
             --expected-signer "$LOCALCONNECT_SIGNER_SHA256" \
-            --expected-package com.example.localconnect --commit "$GITHUB_SHA"
+            --expected-package io.github.takbirzaman.localconnect --commit "$GITHUB_SHA"
           "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -P 16 4 build/app/outputs/flutter-apk/app-release.apk
           python3 scripts/package_checksum.py build/app/outputs/flutter-apk/app-release.apk
       - name: Remove temporary signing file
