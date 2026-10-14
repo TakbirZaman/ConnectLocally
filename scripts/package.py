@@ -13,12 +13,15 @@ output=output.resolve();output.parent.mkdir(parents=True,exist_ok=True)
 if args.source:
     excludes={'build','target','.dart_tool','.gradle','.plugin_symlinks','.symlinks','.git','dist','ephemeral'}
     secrets={'local.properties','key.properties','identity.der','identity.key','identity.key.sealed','state.sqlite','state.sqlite-shm','state.sqlite-wal'}
-    suffixes={'.keystore','.jks','.so','.dll','.exe','.a','.apk','.zip','.tar','.gz','.log','.pyc'}
+    suffixes={'.keystore','.jks','.so','.dll','.exe','.a','.apk','.zip','.tar','.gz','.log','.pyc','.p12','.pfx','.pem','.key','.db','.sqlite','.sqlite3'}
     with zipfile.ZipFile(output,'w',zipfile.ZIP_DEFLATED,compresslevel=6) as archive:
         for file in sorted(root.rglob('*')):
             relative=file.relative_to(root)
             if file.is_symlink() or not file.is_file() or excludes.intersection(relative.parts) or '__pycache__' in relative.parts:continue
-            if file.name in secrets or file.suffix in suffixes:continue
+            if file.name in secrets or file.suffix.lower() in suffixes:continue
+            if any(part.lower() in {'.aws','.ssh','.gnupg','secrets'} for part in relative.parts):continue
+            if file.name.lower()=='.env' or file.name.lower().startswith('.env.'):continue
+            if file.name.lower().endswith(('.sqlite-wal','.sqlite-shm','.sqlite-journal','.key.sealed')):continue
             archive.write(file,'localconnect/'+relative.as_posix())
     print(output)
 elif args.linux:
@@ -33,3 +36,4 @@ else:
         for file in sorted(bundle.rglob('*')):
             if file.is_file():archive.write(file,'LocalConnect/'+file.relative_to(bundle).as_posix())
     print(output)
+
