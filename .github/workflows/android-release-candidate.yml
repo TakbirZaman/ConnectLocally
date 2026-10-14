@@ -26,6 +26,7 @@ jobs:
       - run: rustup toolchain install 1.88.0
       - run: python3 scripts/install_android.py
       - run: flutter pub get --enforce-lockfile
+      - run: python3 -m unittest discover -s tests -p 'test_release_safety.py'
       - run: flutter analyze
       - run: flutter test
       - run: cargo test --locked --manifest-path rust/Cargo.toml --no-default-features --features bridge
@@ -36,15 +37,20 @@ jobs:
           LOCALCONNECT_STORE_PASSWORD: ${{ secrets.LOCALCONNECT_STORE_PASSWORD }}
           LOCALCONNECT_KEY_ALIAS: ${{ secrets.LOCALCONNECT_KEY_ALIAS }}
           LOCALCONNECT_KEY_PASSWORD: ${{ secrets.LOCALCONNECT_KEY_PASSWORD }}
+          LOCALCONNECT_SIGNER_SHA256: ${{ vars.LOCALCONNECT_SIGNER_SHA256 }}
         run: |
           export LOCALCONNECT_KEYSTORE="$RUNNER_TEMP/localconnect-release.jks"
           trap 'rm -f "$LOCALCONNECT_KEYSTORE"' EXIT
           python3 - <<'PY'
           import base64, os
-          required = ['LOCALCONNECT_KEYSTORE_BASE64', 'LOCALCONNECT_STORE_PASSWORD', 'LOCALCONNECT_KEY_ALIAS', 'LOCALCONNECT_KEY_PASSWORD']
+          required = ['LOCALCONNECT_KEYSTORE_BASE64', 'LOCALCONNECT_STORE_PASSWORD', 'LOCALCONNECT_KEY_ALIAS', 'LOCALCONNECT_KEY_PASSWORD', 'LOCALCONNECT_SIGNER_SHA256']
           missing = [key for key in required if not os.environ.get(key)]
           if missing:
-              raise SystemExit('Configure repository Actions secrets: ' + ', '.join(missing))
+              raise SystemExit('Configure signing secrets and LOCALCONNECT_SIGNER_SHA256 variable: ' + ', '.join(missing))
+          import sys
+          sys.path.insert(0, 'scripts')
+          from verify_release_apk import fingerprint
+          fingerprint(os.environ['LOCALCONNECT_SIGNER_SHA256'])
           data = base64.b64decode(os.environ['LOCALCONNECT_KEYSTORE_BASE64'], validate=True)
           if not data:
               raise SystemExit('Signing keystore is empty')
@@ -55,7 +61,11 @@ jobs:
           unset LOCALCONNECT_KEYSTORE_BASE64
           flutter build apk --release --target-platform android-arm64 --no-pub
           python3 scripts/verify_android_apk.py build/app/outputs/flutter-apk/app-release.apk
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs build/app/outputs/flutter-apk/app-release.apk
+          python3 scripts/verify_release_apk.py build/app/outputs/flutter-apk/app-release.apk \
+            --apksigner "$ANDROID_HOME/build-tools/35.0.0/apksigner" \
+            --aapt2 "$ANDROID_HOME/build-tools/35.0.0/aapt2" \
+            --expected-signer "$LOCALCONNECT_SIGNER_SHA256" \
+            --expected-package com.example.localconnect --commit "$GITHUB_SHA"
           "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -P 16 4 build/app/outputs/flutter-apk/app-release.apk
           python3 scripts/package_checksum.py build/app/outputs/flutter-apk/app-release.apk
       - name: Remove temporary signing file
@@ -67,3 +77,4 @@ jobs:
           name: android-arm64-release-candidate-${{ github.sha }}
           path: build/app/outputs/flutter-apk/app-release.apk*
           if-no-files-found: error
+

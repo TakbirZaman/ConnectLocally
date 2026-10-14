@@ -56,3 +56,17 @@ Thumbs.db
 *.log
 *.pyc
 __pycache__/
+
+
+# Never commit local configuration or private signing material
+.env
+.env.*
+*.p12
+*.pfx
+*.pem
+*.key
+*.key.sealed
+.aws/
+.ssh/
+.gnupg/
+secrets/

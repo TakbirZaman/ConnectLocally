@@ -1,5 +1,9 @@
 # LocalConnect 0.2 foundation
 
+Commercial release preparation: read [Production release](docs/PRODUCTION_RELEASE.md)
+for publisher verification, signing setup, and the remaining owner decisions.
+Current downloadable debug APKs are test builds.
+
 Assumptions: both devices are on a trusted local LAN/WLAN, users share a fresh six-digit pairing code with the intended device, and receive folders use a filesystem supporting hard links. No cloud signaling, relays, STUN or TURN are used by the application. Build tools download SDKs/dependencies separately from application operation.
 
 “Zero-loss” means resumable transfer with cryptographic verification. It does not mean uninterrupted connections or permanent Android background execution.
@@ -197,3 +201,4 @@ use SDK `apksigner verify` separately for signatures. A new debug signing key wa
 generated for this build. It may not update earlier installations. Export files
 you need before any uninstall; uninstall removes private identity, trust and
 recovery state. Release signing requires your own protected key.
+
