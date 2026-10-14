@@ -7,6 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'providers.dart';
+import 'brand.dart';
+import 'phone_control_disclosure.dart';
 import 'remote_page.dart';
 import 'src/rust/frb_generated.dart';
 import 'src/rust/api.dart' as core;
@@ -1419,9 +1421,12 @@ class _HomeState extends ConsumerState<Home> with WidgetsBindingObserver {
                       busy
                           ? null
                           : () => run(
-                            () => native.invokeMethod<void>(
-                              'accessibilitySettings',
-                            ),
+                            () async {
+                              final accepted = await showPhoneControlDisclosure(context);
+                              if (accepted && mounted) {
+                                await native.invokeMethod<void>('accessibilitySettings');
+                              }
+                            },
                           ),
                   icon: const Icon(Icons.accessibility_new),
                   label: const Text('Open Accessibility settings'),
@@ -1506,7 +1511,11 @@ class _HomeState extends ConsumerState<Home> with WidgetsBindingObserver {
     }
     return Scaffold(
       appBar: AppBar(
-        title: const Text('LocalConnect'),
+        title: const Row(children: [
+          ExcludeSemantics(child: LocalConnectLogo(size: 32)),
+          SizedBox(width: 10),
+          Flexible(child: Text('LocalConnect', overflow: TextOverflow.ellipsis)),
+        ]),
         actions: [
           if (state.ready)
             TextButton.icon(
@@ -1522,9 +1531,12 @@ class _HomeState extends ConsumerState<Home> with WidgetsBindingObserver {
             ),
         ],
       ),
-      bottomNavigationBar:
-          state.ready
-              ? NavigationBar(
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const CreatorCredit(),
+          if (state.ready)
+              NavigationBar(
                 selectedIndex: page,
                 onDestinationSelected: (value) => setState(() => page = value),
                 destinations: const [
@@ -1545,8 +1557,9 @@ class _HomeState extends ConsumerState<Home> with WidgetsBindingObserver {
                     label: 'Settings',
                   ),
                 ],
-              )
-              : null,
+              ),
+        ]),
+      ),
       body: SafeArea(
         child: Align(
           alignment: Alignment.topCenter,
@@ -1605,3 +1618,4 @@ class _HomeState extends ConsumerState<Home> with WidgetsBindingObserver {
     );
   }
 }
+

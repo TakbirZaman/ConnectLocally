@@ -21,6 +21,9 @@ for permission in add.findall('uses-permission'):
     if not any(x.get(ns+'name')==permission.get(ns+'name') for x in manifest.findall('uses-permission')):
         manifest.insert(0,permission)
 application=manifest.find('application');assert application is not None
+application.set(ns+'label','LocalConnect')
+application.set(ns+'icon','@mipmap/ic_launcher')
+shutil.copytree(root/'assets/brand/android-res',app/'src/main/res',dirs_exist_ok=True)
 application.set(ns+'allowBackup','false')
 application.set(ns+'fullBackupContent','false')
 for service in add.find('application').findall('service'):
@@ -58,3 +61,4 @@ text=re.sub(r'(id\("com.android.application"\) version )"[^"]+"',r'\1"8.7.3"',te
 text=re.sub(r'(id\("org.jetbrains.kotlin.android"\) version )"[^"]+"',r'\1"2.1.0"',text)
 settings.write_text(text)
 print('Installed Android source overlays; API 35 target, minimum API 26. Native build still required.')
+

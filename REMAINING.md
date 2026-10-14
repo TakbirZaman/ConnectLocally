@@ -52,3 +52,13 @@ runtime correctness.
 See VALIDATION.md for executed checks and the acceptance checklist. These are
 remaining build/device evidence and known capability limits, not disabled remote
 control placeholder files as in the original foundation.
+
+
+## Owner-reported device testing — 2026-10-14
+
+Takbir Zaman Bhuiyan reports completing real-device testing. Device models,
+OS versions, tested build SHA and individual checklist results were not supplied.
+This records the owner's validation separately from automated CI evidence; it
+does not mark unreported platform cases as independently verified. New branding
+and disclosure changes require their own regression check.
+

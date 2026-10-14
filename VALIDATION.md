@@ -215,3 +215,13 @@ close; held-input release is checked against surviving server state. Feature
 branch pushes no longer duplicate PR jobs; push CI remains on main/develop.
 These harness changes require a fresh green run before merge. No protection
 settings were disabled or bypassed.
+
+
+## Owner-reported device testing — 2026-10-14
+
+Takbir Zaman Bhuiyan reports completing real-device testing. Device models,
+OS versions, tested build SHA and individual checklist results were not supplied.
+This records the owner's validation separately from automated CI evidence; it
+does not mark unreported platform cases as independently verified. New branding
+and disclosure changes require their own regression check.
+
