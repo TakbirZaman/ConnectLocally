@@ -55,6 +55,10 @@ class MainActivity : FlutterActivity() {
         channel.setMethodCallHandler { call, result ->
             try {
                 when (call.method) {
+                    "openCreatorProfile" -> {
+                        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.linkedin.com/in/takbir-zaman-bhuiyan")))
+                        result.success(null)
+                    }
                     "bindEngine" -> {check(TransferService.available()){ "Foreground service stopped during startup; start again" };generation=(call.arguments as Number).toLong();RustLifecycle.generation=generation;TransferService.bind(generation);result.success(null)}
                     "prepareIdentity" -> {IdentityVault.prepare(this);result.success(null)}
                     "sealIdentity" -> {IdentityVault.seal(this);result.success(null)}
@@ -175,3 +179,4 @@ class MainActivity : FlutterActivity() {
         worker.shutdownNow();super.onDestroy()
     }
 }
+
