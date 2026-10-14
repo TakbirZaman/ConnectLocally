@@ -91,11 +91,15 @@ void main() {
     (tester) async {
       final api = await home(tester);
       await tester.scrollUntilVisible(
-        find.text('Connect by IP address'),
-        200,
+        find.text('Connect by IP address').hitTestable(),
+        120,
         scrollable: find.byType(Scrollable).first,
       );
-      await tester.tap(find.text('Connect by IP address'));
+      await tester.pumpAndSettle();
+      expect(find.text('Connect by IP address').hitTestable(), findsOneWidget);
+      await tester.tap(find.text('Connect by IP address').hitTestable());
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byType(TextField));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), '192.168.1.2:53317');
       await tester.ensureVisible(find.text('Connect'));
