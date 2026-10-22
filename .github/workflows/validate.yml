@@ -80,10 +80,13 @@ jobs:
         run: |
           $compiler = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
           if (!(Test-Path $compiler)) { throw 'Inno Setup compiler missing from Windows runner' }
-          $version = (Get-Item $compiler).VersionInfo.ProductVersion
-          if ($version -notlike '6.7.1*') { throw "Expected Inno Setup 6.7.1; found $version" }
-          & $compiler packaging/windows/localconnect.iss
-          if ($LASTEXITCODE -ne 0) { throw 'Windows installer compilation failed' }
+          $compilerOutput = & $compiler packaging/windows/localconnect.iss 2>&1
+          $compilerExit = $LASTEXITCODE
+          $compilerOutput | Write-Output
+          if ($compilerExit -ne 0) { throw 'Windows installer compilation failed' }
+          if (($compilerOutput -join "`n") -notmatch '(?m)^Compiler engine version:.*\b6\.7\.1\b') {
+            throw 'Expected compiler engine Inno Setup 6.7.1 in compiler output'
+          }
           python scripts/package_checksum.py dist/LocalConnect-Windows-x64-Setup.exe
           if ($LASTEXITCODE -ne 0) { throw 'Installer checksum creation failed' }
       - name: Verify first install, reinstall and uninstall
@@ -161,3 +164,4 @@ jobs:
         with:
           name: android-arm64-view-only-debug
           path: dist/LocalConnect-Android-ViewOnly.apk*
+
