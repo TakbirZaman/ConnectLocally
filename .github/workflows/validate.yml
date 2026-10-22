@@ -63,12 +63,55 @@ jobs:
       - run: flutter test
       - run: flutter build windows --release
       - run: python -m unittest discover -s tests -p 'test_package_checksum.py'
+      - name: Include app-local Microsoft C++ runtime
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vs = & $vswhere -latest -products '*' -property installationPath
+          if ($LASTEXITCODE -ne 0 -or !$vs) { throw 'Visual Studio installation not found' }
+          $runtime = Get-Item "$vs\VC\Redist\MSVC\*\x64\Microsoft.VC143.CRT" |
+            Sort-Object FullName -Descending | Select-Object -First 1
+          if (!$runtime) { throw 'Redistributable Microsoft C++ runtime not found' }
+          Copy-Item "$($runtime.FullName)\*.dll" build/windows/x64/runner/Release/
       - run: python scripts/package.py --windows
       - run: python scripts/package_checksum.py dist/LocalConnect-Windows-x64.zip
+      - name: Build per-user Windows installer (Inno Setup 6.7.1)
+        shell: pwsh
+        run: |
+          $compiler = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (!(Test-Path $compiler)) { throw 'Inno Setup compiler missing from Windows runner' }
+          $compilerOutput = & $compiler packaging/windows/localconnect.iss 2>&1
+          $compilerExit = $LASTEXITCODE
+          $compilerOutput | Write-Output
+          if ($compilerExit -ne 0) { throw 'Windows installer compilation failed' }
+          if (($compilerOutput -join "`n") -notmatch '(?m)^Compiler engine version:.*\b6\.7\.1\b') {
+            throw 'Expected compiler engine Inno Setup 6.7.1 in compiler output'
+          }
+          python scripts/package_checksum.py dist/LocalConnect-Windows-x64-Setup.exe
+          if ($LASTEXITCODE -ne 0) { throw 'Installer checksum creation failed' }
+      - name: Verify first install, reinstall and uninstall
+        shell: pwsh
+        run: |
+          $target = Join-Path $env:RUNNER_TEMP 'LocalConnectInstall'
+          $installer = (Resolve-Path dist/LocalConnect-Windows-x64-Setup.exe).Path
+          foreach ($pass in 1..2) {
+            $process = Start-Process $installer -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /DIR=`"$target`"" -Wait -PassThru
+            if ($process.ExitCode -ne 0) { throw "Installer failed on pass $pass" }
+            foreach ($file in @('localconnect.exe', 'vcruntime140.dll', 'msvcp140.dll', 'data\flutter_assets\AssetManifest.bin')) {
+              if (!(Test-Path (Join-Path $target $file))) { throw "Installed bundle missing $file" }
+            }
+            $shortcut = Join-Path ([Environment]::GetFolderPath('Programs')) 'LocalConnect.lnk'
+            if (!(Test-Path $shortcut)) { throw 'Start-menu shortcut missing' }
+          }
+          $process = Start-Process (Join-Path $target 'unins000.exe') -ArgumentList '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART' -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw 'Uninstall failed' }
+          if (Test-Path (Join-Path $target 'localconnect.exe')) { throw 'Application remained after uninstall' }
       - uses: actions/upload-artifact@v4
         with:
           name: windows-x64
-          path: dist/LocalConnect-Windows-x64.zip*
+          path: |
+            dist/LocalConnect-Windows-x64.zip*
+            dist/LocalConnect-Windows-x64-Setup.exe*
   android:
     runs-on: ubuntu-24.04
     steps:
@@ -121,3 +164,4 @@ jobs:
         with:
           name: android-arm64-view-only-debug
           path: dist/LocalConnect-Android-ViewOnly.apk*
+

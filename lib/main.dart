@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'providers.dart';
+import 'desktop_preferences.dart';
 import 'brand.dart';
 import 'phone_control_disclosure.dart';
 import 'remote_page.dart';
@@ -197,12 +198,12 @@ class _HomeState extends ConsumerState<Home> with WidgetsBindingObserver {
         );
       }
     } else {
-      receiveDir =
-          await FilePicker.platform.getDirectoryPath(
-            dialogTitle: 'Choose a dedicated receive folder',
-          ) ??
-          '';
-      if (receiveDir.isEmpty) return;
+      final downloads = await getDownloadsDirectory();
+      final base = downloads ?? await getApplicationDocumentsDirectory();
+      receiveDir = await DesktopPreferences(
+        File('${dir.path}/desktop-preferences.json'),
+      ).resolveReceiveFolder('${base.path}${Platform.pathSeparator}LocalConnect');
+      if (mounted) setState(() {});
     }
     if (!mounted || epoch != operationEpoch) {
       if (Platform.isAndroid) {
@@ -370,6 +371,65 @@ class _HomeState extends ConsumerState<Home> with WidgetsBindingObserver {
       rethrow;
     }
   }
+
+  Future<void> chooseReceiveFolder() async {
+    // Changing the root while running could invalidate active recovery paths.
+    if (ref.read(localProvider).ready) return;
+    final epoch = operationEpoch;
+    final path = await FilePicker.platform.getDirectoryPath(
+      dialogTitle: 'Choose where received files are saved',
+    );
+    if (path == null || !mounted || epoch != operationEpoch) return;
+    final support = await getApplicationSupportDirectory();
+    if (!mounted || epoch != operationEpoch) return;
+    await DesktopPreferences(
+      File('${support.path}/desktop-preferences.json'),
+    ).saveReceiveFolder(path);
+    if (mounted && epoch == operationEpoch) setState(() => receiveDir = path);
+  }
+
+  Future<void> openReceiveFolder() async {
+    if (receiveDir.isEmpty || !await Directory(receiveDir).exists()) {
+      throw const FileSystemException('Receive folder is unavailable. Check the drive or choose another folder.');
+    }
+    final result = await Process.run(
+      Platform.isWindows ? 'explorer.exe' : 'xdg-open',
+      [receiveDir],
+      runInShell: false,
+    );
+    // Explorer may return 1 when forwarding to an existing Explorer process.
+    if (result.exitCode != 0 && !(Platform.isWindows && result.exitCode == 1)) {
+      throw const FileSystemException('Could not open the receive folder. Use Copy folder path instead.');
+    }
+  }
+
+  Widget receiveFolderPanel({required bool ready}) => panel(
+    'Received files',
+    receiveDir.isEmpty
+        ? 'Your folder is remembered. By default, files are saved in Downloads/LocalConnect.'
+        : receiveDir,
+    [
+      if (receiveDir.isNotEmpty) ...[
+        OutlinedButton.icon(
+          onPressed: busy ? null : () => run(openReceiveFolder),
+          icon: const Icon(Icons.folder_open),
+          label: const Text('Open received files'),
+        ),
+        TextButton.icon(
+          onPressed: () => run(() => Clipboard.setData(ClipboardData(text: receiveDir))),
+          icon: const Icon(Icons.copy),
+          label: const Text('Copy folder path'),
+        ),
+      ],
+      TextButton.icon(
+        onPressed: busy || ready ? null : () => run(chooseReceiveFolder),
+        icon: const Icon(Icons.drive_file_move_outlined),
+        label: const Text('Change receive folder'),
+      ),
+      if (ready) const Text('Stop all to change the folder. Existing files stay where they are.'),
+    ],
+    icon: Icons.download_outlined,
+  );
 
   Future<bool> confirm(
     String title,
@@ -1228,12 +1288,13 @@ class _HomeState extends ConsumerState<Home> with WidgetsBindingObserver {
             Text(
               Platform.isAndroid
                   ? 'Received files stay in the app until you choose Save to phone.'
-                  : 'You will choose a folder for received files.',
+                  : 'Your receive folder is remembered between starts.',
             ),
           ],
           icon: Icons.connect_without_contact,
         ),
       );
+      if (!Platform.isAndroid) content.add(receiveFolderPanel(ready: false));
     } else if (page == 0) {
       content.add(
         panel(
@@ -1334,6 +1395,7 @@ class _HomeState extends ConsumerState<Home> with WidgetsBindingObserver {
         ),
       );
     } else if (page == 1) {
+      if (!Platform.isAndroid) content.add(receiveFolderPanel(ready: true));
       content.add(
         panel(
           'Send a file',
@@ -1468,6 +1530,7 @@ class _HomeState extends ConsumerState<Home> with WidgetsBindingObserver {
           icon: Icons.verified_user_outlined,
         ),
       );
+      if (!Platform.isAndroid) content.add(receiveFolderPanel(ready: true));
       content.add(
         panel(
           'Preferences',
@@ -1618,4 +1681,3 @@ class _HomeState extends ConsumerState<Home> with WidgetsBindingObserver {
     );
   }
 }
-

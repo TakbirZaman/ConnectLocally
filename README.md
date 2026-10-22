@@ -1,5 +1,8 @@
 # LocalConnect 0.2 foundation
 
+Windows users: see [Install once and find received files](docs/WINDOWS_SETUP.md).
+New Windows builds include a per-user Setup EXE and remember the receive folder.
+
 Commercial release preparation: read [Production release](docs/PRODUCTION_RELEASE.md)
 for publisher verification, signing setup, and the remaining owner decisions.
 Current downloadable debug APKs are test builds. The product direction is a free
@@ -204,4 +207,3 @@ use SDK `apksigner verify` separately for signatures. A new debug signing key wa
 generated for this build. It may not update earlier installations. Export files
 you need before any uninstall; uninstall removes private identity, trust and
 recovery state. Release signing requires your own protected key.
-
