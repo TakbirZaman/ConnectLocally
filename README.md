@@ -1,11 +1,26 @@
-# LocalConnect 0.2 foundation
+# LocalConnect
+
+## Download for Windows and Android
+
+| Platform | Direct download |
+|---|---|
+| **Windows 10/11 · x64** | **[Download installer · v0.2.1](https://github.com/TakbirZaman/ConnectLocally/releases/download/v0.2.1-beta.1/LocalConnect-Windows-x64-Setup-0.2.1.exe)** |
+| **Android · ARM64 · Android 8+** | **[Download signed APK · v0.2.0](https://github.com/TakbirZaman/ConnectLocally/releases/download/v0.2.1-beta.1/LocalConnect-Android-arm64-Signed-0.2.0.apk)** |
+
+[Release notes and checksums](https://github.com/TakbirZaman/ConnectLocally/releases/tag/v0.2.1-beta.1) · [SHA-256 checksums](https://github.com/TakbirZaman/ConnectLocally/releases/download/v0.2.1-beta.1/SHA256SUMS.txt)
+
+Public beta downloads; no GitHub sign-in is required. Windows: run Setup once,
+then launch LocalConnect from Start. Android: install the APK and grant screen/input
+permissions only when needed. The Windows installer is unsigned; the Android APK
+is release-signed. Google approval is not established. These versions share the
+same LAN protocol; the Windows update adds installer and receive-folder improvements.
 
 Windows users: see [Install once and find received files](docs/WINDOWS_SETUP.md).
 New Windows builds include a per-user Setup EXE and remember the receive folder.
 
 Commercial release preparation: read [Production release](docs/PRODUCTION_RELEASE.md)
 for publisher verification, signing setup, and the remaining owner decisions.
-Current downloadable debug APKs are test builds. The product direction is a free
+CI debug APKs are test builds; the signed beta APK above is provided separately. The product direction is a free
 beta with optional paid setup/support planned, not yet offered for purchase.
 New Android builds use `io.github.takbirzaman.localconnect`; see
 [Android migration](docs/ANDROID_MIGRATION.md) before switching from an older APK.

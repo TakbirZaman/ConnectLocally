@@ -1,0 +1,25 @@
+name: Publish verified beta downloads
+on:
+  push:
+    branches: [main, codex/readme-download-links]
+    paths: [.github/workflows/publish-downloads.yml, scripts/publish_verified_downloads.py]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: localconnect-beta-downloads
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: github.repository == 'TakbirZaman/ConnectLocally'
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify existing CI artifacts and publish beta files
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: TakbirZaman/ConnectLocally
+        run: python3 scripts/publish_verified_downloads.py
