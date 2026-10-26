@@ -1,18 +1,21 @@
 # LocalConnect
 
-## Download for Windows and Android
+## Download for Windows, Linux and Android
 
 | Platform | Direct download |
 |---|---|
-| **Windows 10/11 · x64** | **[Download installer · v0.2.1](https://github.com/TakbirZaman/ConnectLocally/releases/download/v0.2.1-beta.1/LocalConnect-Windows-x64-Setup-0.2.1.exe)** |
-| **Android · ARM64 · Android 8+** | **[Download signed APK · v0.2.0](https://github.com/TakbirZaman/ConnectLocally/releases/download/v0.2.1-beta.1/LocalConnect-Android-arm64-Signed-0.2.0.apk)** |
+| **Windows 10/11 · x64** | **[Download installer · v0.2.1](https://github.com/TakbirZaman/ConnectLocally/releases/download/v0.2.1-beta.2/LocalConnect-Windows-x64-Setup-0.2.1.exe)** |
+| **Linux · x64 · Ubuntu 24.04 build** | **[Download archive · v0.2.1](https://github.com/TakbirZaman/ConnectLocally/releases/download/v0.2.1-beta.2/LocalConnect-Linux-x64-0.2.1.tar.gz)** |
+| **Android · ARM64 · Android 8+** | **[Download signed APK · v0.2.0](https://github.com/TakbirZaman/ConnectLocally/releases/download/v0.2.1-beta.2/LocalConnect-Android-arm64-Signed-0.2.0.apk)** |
 
-[Release notes and checksums](https://github.com/TakbirZaman/ConnectLocally/releases/tag/v0.2.1-beta.1) · [SHA-256 checksums](https://github.com/TakbirZaman/ConnectLocally/releases/download/v0.2.1-beta.1/SHA256SUMS.txt)
+[Release notes and checksums](https://github.com/TakbirZaman/ConnectLocally/releases/tag/v0.2.1-beta.2) · [SHA-256 checksums](https://github.com/TakbirZaman/ConnectLocally/releases/download/v0.2.1-beta.2/SHA256SUMS.txt)
 
 Public beta downloads; no GitHub sign-in is required. Windows: run Setup once,
-then launch LocalConnect from Start. Android: install the APK and grant screen/input
+then launch LocalConnect from Start. Linux: extract the archive and run
+`./LocalConnect/localconnect`; compatible GTK 3/runtime libraries are required.
+See the Linux/Wayland dependency notes below for capture support. Android: install the APK and grant screen/input
 permissions only when needed. The Windows installer is unsigned; the Android APK
-is release-signed. Google approval is not established. These versions share the
+is release-signed. Google approval is not established. All three packages share the
 same LAN protocol; the Windows update adds installer and receive-folder improvements.
 
 Windows users: see [Install once and find received files](docs/WINDOWS_SETUP.md).
