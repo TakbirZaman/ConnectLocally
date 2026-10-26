@@ -1,7 +1,7 @@
 name: Publish verified beta downloads
 on:
   push:
-    branches: [main, codex/readme-download-links]
+    branches: [main, codex/readme-download-links, codex/linux-download-links]
     paths: [.github/workflows/publish-downloads.yml, scripts/publish_verified_downloads.py]
   workflow_dispatch:
 permissions:

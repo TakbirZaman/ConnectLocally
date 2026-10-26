@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Publish only the two immutable, hash-pinned beta binaries already tested in CI."""
+"""Publish only the three immutable, hash-pinned beta binaries already tested in CI."""
 import hashlib
 import json
 from pathlib import Path
@@ -8,9 +8,15 @@ import subprocess
 import tempfile
 
 REPO = "TakbirZaman/ConnectLocally"
-TAG = "v0.2.1-beta.1"
+TAG = "v0.2.1-beta.2"
 TARGET = "9a40720bb93163fe4912ff055faf0f914d49fddb"
 FILES = [
+    {
+        "run": 39804962188, "source": "3c33fd5a7630b3e398cbca49029e2d7345693b76",
+        "artifact": "linux-x64", "input": "LocalConnect-Linux-x64.tar.gz",
+        "output": "LocalConnect-Linux-x64-0.2.1.tar.gz",
+        "sha256": "ab105696be666e9b6d87da73ef2041b2066d6c75695f77515cc42e1f86548cec",
+    },
     {
         "run": 39804962188, "source": "3c33fd5a7630b3e398cbca49029e2d7345693b76",
         "artifact": "windows-x64", "input": "LocalConnect-Windows-x64-Setup.exe",
@@ -27,7 +33,7 @@ FILES = [
 NOTES = """Beta packages for testing; these are not a certified production release.
 
 - Windows 0.2.1: install once, remembered receive folder, Open received files. The installer is not publisher-signed.
-- Android 0.2.0: ARM64, owner release-signed, application ID io.github.takbirzaman.localconnect.
+- Linux 0.2.1: x64 tar.gz built and tested in Ubuntu 24.04 CI. Requires compatible GTK 3/runtime libraries; screen capture additionally needs the documented X11 or Wayland dependencies. Extract and run LocalConnect/localconnect.\n- Android 0.2.0: ARM64, owner release-signed, application ID io.github.takbirzaman.localconnect.
 - Versions differ intentionally: the Windows usability update does not change the LAN protocol. Android signing keys are not uploaded.
 - Google approval is not established. Follow Android's fresh capture/Accessibility consent prompts.
 - PNG streaming is limited to up to 4 fps and one desktop display.
@@ -99,7 +105,7 @@ def main():
         else:
             gh("release", "create", TAG, *[str(asset) for asset in assets],
                "--repo", REPO, "--target", TARGET, "--prerelease",
-               "--title", "LocalConnect beta — Windows and Android",
+               "--title", "LocalConnect beta — Windows, Linux and Android",
                "--notes-file", str(notes))
             print("Published verified Windows and Android beta downloads.")
 
