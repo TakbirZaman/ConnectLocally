@@ -1,4 +1,10 @@
 # LocalConnect
+##project screenshot 
+<img width="922" height="2046" alt="886291115_1830556124929471_7151797159570518296_n" src="https://github.com/user-attachments/assets/51615a05-554e-43aa-9e04-843899b7d246" />
+<img width="922" height="2046" alt="865098550_1098305703014210_2164164763178062921_n" src="https://github.com/user-attachments/assets/ac4e5d2e-9e17-4980-88b9-4ed64a02b012" />
+<img width="922" height="2046" alt="891842238_1447937206665463_4690268287004726923_n" src="https://github.com/user-attachments/assets/d4e50015-f9e3-4d84-997a-5639fdcd4f13" />
+<img width="922" height="2046" alt="897639767_1832574164448965_6184861485430600495_n" src="https://github.com/user-attachments/assets/81104e0d-2162-4012-ad16-d50a53b14e1f" />
+
 
 ## Download for Windows, Linux and Android
 
