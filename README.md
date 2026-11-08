@@ -1,6 +1,16 @@
 # LocalConnect
 
-## Download for Windows, Linux and Android
+<img width="922" height="2046" alt="865098550_1098305703014210_2164164763178062921_n" src="https://github.com/user-attachments/assets/132f11d3-ec3f-40cb-b909-b37f9187a37a" />
+
+<img width="922" height="2046" alt="886291115_1830556124929471_7151797159570518296_n" src="https://github.com/user-attachments/assets/5cc1fa7b-b590-4171-88aa-923efa3f21a4" />
+<img width="922" height="2046" alt="897639767_1832574164448965_6184861485430600495_n" src="https://github.com/user-attachments/assets/687c1260-52c9-4f16-9d71-760e709225db" />
+<img width="922" height="2046" alt="891842238_1447937206665463_4690268287004726923_n" src="https://github.com/user-attachments/assets/3d224826-4a31-435d-8efa-72c06f047eea" />
+<img width="922" height="2046" alt="897639767_1832574164448965_6184861485430600495_n" src="https://github.com/user-attachments/assets/112e591c-c0a5-43aa-aaf0-fb6e8be5afb1" />
+
+
+
+
+## Download for your Windows, Linux and Android
 
 | Platform | Direct download |
 |---|---|
